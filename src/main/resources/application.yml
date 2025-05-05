@@ -1,0 +1,79 @@
+spring:
+  profiles:
+    active: local
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:mysql://localhost:3307/autocoin_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: root
+    password: 1234
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+server:
+  port: 8080
+
+jwt:
+  secret: your-jwt-secret-key-for-local-dev
+
+cloud:
+  aws:
+    s3:
+      bucket: your-local-s3-bucket
+    credentials:
+      access-key: your-local-aws-access-key
+      secret-key: your-local-aws-secret-key
+    region:
+      static: ap-northeast-2
+    stack:
+      auto: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:mysql://your-dev-rds-endpoint:3306/autocoin_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: dev-db-user
+    password: dev-db-password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+server:
+  port: 8080
+
+jwt:
+  secret: your-jwt-secret-key-for-dev
+
+cloud:
+  aws:
+    s3:
+      bucket: your-dev-s3-bucket
+    credentials:
+      access-key: your-dev-aws-access-key
+      secret-key: your-dev-aws-secret-key
+    region:
+      static: ap-northeast-2
+    stack:
+      auto: false
