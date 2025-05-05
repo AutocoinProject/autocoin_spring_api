@@ -30,12 +30,12 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public User signup(UserSignupRequestDto requestDto) {
-        // 이메일 중복 검사
+        // Check if email already exists
         if (userRepository.existsByEmail(requestDto.getEmail())) {
             throw new CustomException(ErrorCode.EMAIL_DUPLICATION);
         }
 
-        // 회원 정보 생성
+        // Create new user with bcrypt encrypted password
         User user = User.builder()
                 .email(requestDto.getEmail())
                 .password(passwordEncoderUtil.encode(requestDto.getPassword()))
@@ -48,11 +48,11 @@ public class UserService implements UserDetailsService {
     
     @Transactional(readOnly = true)
     public User login(UserLoginRequestDto requestDto) {
-        // 사용자 찾기
+        // Find user by email
         User user = userRepository.findByEmail(requestDto.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.LOGIN_FAILED));
         
-        // 비밀번호 검증
+        // Verify password using bcrypt
         if (!passwordEncoderUtil.matches(requestDto.getPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.LOGIN_FAILED);
         }

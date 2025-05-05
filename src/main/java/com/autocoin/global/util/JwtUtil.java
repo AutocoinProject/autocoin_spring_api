@@ -22,7 +22,7 @@ public class JwtUtil {
      * JWT 토큰에서 이메일 추출
      */
     public String getEmailFromToken(String token) {
-        return jwtTokenProvider.getUserPk(token);
+        return jwtTokenProvider.getEmail(token);
     }
     
     /**
