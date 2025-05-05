@@ -15,6 +15,10 @@ repositories {
     mavenCentral()
 }
 
+springBoot {
+    mainClass = 'com.autocoin.AutocoinSpringApiApplication'
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -25,7 +29,10 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
-
+    
+    // Swagger OpenAPI 의존성 (Spring Boot 3.x용)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0' // Spring Boot 3 용
+    
     runtimeOnly 'com.mysql:mysql-connector-j'
 
     compileOnly 'org.projectlombok:lombok'
@@ -33,6 +40,9 @@ dependencies {
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
+    // 테스트용 H2 데이터베이스
+    testRuntimeOnly 'com.h2database:h2'
+    
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
 }

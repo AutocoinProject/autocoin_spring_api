@@ -26,8 +26,8 @@ public class JwtTokenProvider {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    // Token 유효시간 30분
-    private long tokenValidTime = 30 * 60 * 1000L;
+    @Value("${jwt.expiration}")
+    private long tokenValidTime; // Token expiration time in milliseconds
     
     private final UserDetailsService userDetailsService;
     
@@ -38,37 +38,57 @@ public class JwtTokenProvider {
         this.userDetailsService = userDetailsService;
     }
 
-    // 객체 초기화, secretKey를 Base64로 인코딩
+    // Initialize the key using the secret from application.yml
     @PostConstruct
     protected void init() {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
-    // JWT 토큰 생성
-    public String createToken(String userPk, List<String> roles) {
-        Claims claims = Jwts.claims().setSubject(userPk); // JWT payload에 저장되는 정보단위
-        claims.put("roles", roles); // 정보는 key/value 쌍으로 저장
+    // Create JWT token with user_id, email and expiration time
+    public String createToken(Long userId, String email, List<String> roles) {
+        Claims claims = Jwts.claims();
+        claims.put("user_id", userId);
+        claims.put("email", email);
+        claims.put("roles", roles); // Optional: include roles if needed
+        
         Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + tokenValidTime);
+        
         return Jwts.builder()
-                .setClaims(claims) // 정보 저장
-                .setIssuedAt(now) // 토큰 발행 시간 정보
-                .setExpiration(new Date(now.getTime() + tokenValidTime)) // 만료 시간
-                .signWith(key, SignatureAlgorithm.HS256) // 사용할 암호화 알고리즘과 signature에 들어갈 secret값 세팅
+                .setClaims(claims)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // JWT 토큰에서 인증 정보 조회
+    // Get authentication information from token
     public Authentication getAuthentication(String token) {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(this.getUserPk(token));
+        UserDetails userDetails = userDetailsService.loadUserByUsername(getEmail(token));
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
-    // 토큰에서 회원 정보 추출
-    public String getUserPk(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
+    // Extract email from token
+    public String getEmail(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("email", String.class);
     }
 
-    // Request의 Header에서 token 값을 가져옴
+    // Extract user_id from token
+    public Long getUserId(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("user_id", Long.class);
+    }
+
+    // Extract token from request
     public String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
@@ -77,10 +97,14 @@ public class JwtTokenProvider {
         return null;
     }
 
-    // 토큰의 유효성 + 만료일자 확인
-    public boolean validateToken(String jwtToken) {
+    // Validate token
+    public boolean validateToken(String token) {
         try {
-            Jws<Claims> claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(jwtToken);
+            Jws<Claims> claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token);
+            
             return !claims.getBody().getExpiration().before(new Date());
         } catch (Exception e) {
             return false;

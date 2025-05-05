@@ -21,6 +21,9 @@ public class UserResponseDto {
     private LocalDateTime updatedAt;
     
     public static UserResponseDto of(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("User cannot be null");
+        }
         return UserResponseDto.builder()
                 .id(user.getId())
                 .email(user.getEmail())

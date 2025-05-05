@@ -2,16 +2,10 @@ spring:
   profiles:
     active: local
 
----
-spring:
-  config:
-    activate:
-      on-profile: local
-
   datasource:
     url: jdbc:mysql://localhost:3307/autocoin_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: root
-    password: 1234
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -25,55 +19,36 @@ spring:
 server:
   port: 8080
 
+# Swagger/OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+
 jwt:
-  secret: your-jwt-secret-key-for-local-dev
+  secret: ${JWT_SECRET:your-default-jwt-secret-key-should-be-very-long-and-secure}
+  expiration: ${JWT_EXPIRATION:1800000} # 30 minutes in milliseconds
+
+# CORS Configuration
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: Authorization,Content-Type
+  max-age: 3600
 
 cloud:
   aws:
     s3:
-      bucket: your-local-s3-bucket
+      bucket: ${S3_BUCKET:your-local-s3-bucket}
     credentials:
-      access-key: your-local-aws-access-key
-      secret-key: your-local-aws-secret-key
+      access-key: ${AWS_ACCESS_KEY:your-local-aws-access-key}
+      secret-key: ${AWS_SECRET_KEY:your-local-aws-secret-key}
     region:
-      static: ap-northeast-2
-    stack:
-      auto: false
-
----
-spring:
-  config:
-    activate:
-      on-profile: dev
-
-  datasource:
-    url: jdbc:mysql://your-dev-rds-endpoint:3306/autocoin_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: dev-db-user
-    password: dev-db-password
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-    show-sql: true
-
-server:
-  port: 8080
-
-jwt:
-  secret: your-jwt-secret-key-for-dev
-
-cloud:
-  aws:
-    s3:
-      bucket: your-dev-s3-bucket
-    credentials:
-      access-key: your-dev-aws-access-key
-      secret-key: your-dev-aws-secret-key
-    region:
-      static: ap-northeast-2
+      static: ${AWS_REGION:ap-northeast-2}
     stack:
       auto: false
