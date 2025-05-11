@@ -75,6 +75,13 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
     
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, String>> healthCheck() {
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "OK");
+        return ResponseEntity.ok(response);
+    }
+    
     @Operation(summary = "내 정보 조회", description = "현재 인증된 사용자의 정보를 조회합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "정보 조회 성공",
@@ -94,5 +101,31 @@ public class AuthController {
                             .build());
         }
         return ResponseEntity.ok(UserResponseDto.of(user));
+    }
+    
+    @Operation(summary = "Google OAuth2 로그인", description = "Google OAuth2 로그인 URL을 제공합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Google OAuth2 로그인 URL 반환"),
+        @ApiResponse(responseCode = "500", description = "서버 오류")
+    })
+    @GetMapping("/oauth2/google")
+    public ResponseEntity<Map<String, String>> getGoogleOAuth2Url() {
+        String authUrl = "http://localhost:5000/oauth2/authorization/google";
+        Map<String, String> response = new HashMap<>();
+        response.put("url", authUrl);
+        return ResponseEntity.ok(response);
+    }
+    
+    @Operation(summary = "Kakao OAuth2 로그인", description = "Kakao OAuth2 로그인 URL을 제공합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Kakao OAuth2 로그인 URL 반환"),
+        @ApiResponse(responseCode = "500", description = "서버 오류")
+    })
+    @GetMapping("/oauth2/kakao")
+    public ResponseEntity<Map<String, String>> getKakaoOAuth2Url() {
+        String authUrl = "http://localhost:5000/oauth2/authorization/kakao";
+        Map<String, String> response = new HashMap<>();
+        response.put("url", authUrl);
+        return ResponseEntity.ok(response);
     }
 }

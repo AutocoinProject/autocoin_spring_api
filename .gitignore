@@ -39,7 +39,10 @@ out/
 ### Application Properties ###
 /src/main/resources/application-dev.yml
 /src/main/resources/application-prod.yml
+### Environment Files ###
 .env
+.env.*
+!.env.*.template
 
 ### Logs ###
 /logs

@@ -1,0 +1,47 @@
+package com.autocoin.test;
+
+import com.autocoin.user.domain.Role;
+import com.autocoin.user.domain.User;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+@RequiredArgsConstructor
+@Profile("h2") // H2 프로필에서만 실행
+@Slf4j
+public class TestDataInitializer implements ApplicationRunner {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+    
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    @Transactional
+    public void run(ApplicationArguments args) {
+        log.info("Initializing test data...");
+        
+        // 테스트용 사용자 생성 (ID=1)
+        User testUser = User.builder()
+                .id(1L)
+                .email("test@example.com")
+                .username("testuser")
+                .password(passwordEncoder.encode("password"))
+                .role(Role.ROLE_USER)
+                .build();
+        
+        // ID 값을 명시적으로 설정한 엔티티 저장
+        entityManager.persist(testUser);
+        entityManager.flush();
+        
+        log.info("Test data initialized successfully. Created test user with ID: {}", testUser.getId());
+    }
+}

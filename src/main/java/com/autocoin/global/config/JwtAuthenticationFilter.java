@@ -25,9 +25,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    private static final String[] EXCLUDED_PATHS = {
+        "/", 
+        "/health", 
+        "/api/cors-test",
+        "/api/v1/auth/oauth2/google",
+        "/api/v1/auth/oauth2/kakao",
+        "/oauth2/authorization/google",
+        "/oauth2/authorization/kakao"
+    };
+    
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        
+        // Skip filter for excluded paths
+        for (String excludedPath : EXCLUDED_PATHS) {
+            if (path.startsWith(excludedPath)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        // Skip filter for OPTIONS requests
+        if (request.getMethod().equals("OPTIONS")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
         // Extract JWT token from Authorization header
         String token = jwtTokenProvider.resolveToken(request);
         

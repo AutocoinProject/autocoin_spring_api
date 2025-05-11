@@ -19,6 +19,7 @@ public class UserResponseDto {
     private String role;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String provider;
     
     public static UserResponseDto of(User user) {
         if (user == null) {
@@ -31,6 +32,7 @@ public class UserResponseDto {
                 .role(user.getRole().name())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .provider(user.getProvider())
                 .build();
     }
 }
