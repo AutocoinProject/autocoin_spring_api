@@ -183,7 +183,7 @@ jobs:
     
     steps:
     - name: Notify Slack
-      if: ${{ secrets.SLACK_WEBHOOK }}
+      if: vars.SLACK_WEBHOOK != ''
       uses: rtCamp/action-slack-notify@v2
       env:
         SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -198,7 +198,7 @@ jobs:
         SLACK_USERNAME: GitHub Actions
     
     - name: Notify Telegram
-      if: ${{ secrets.TELEGRAM_BOT_TOKEN && secrets.TELEGRAM_CHAT_ID }}
+      if: vars.TELEGRAM_BOT_TOKEN != '' && vars.TELEGRAM_CHAT_ID != ''
       run: |
         STATUS=${{ needs.deploy-ec2.result }}
         if [ "$STATUS" = "success" ]; then
