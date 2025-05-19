@@ -1,4 +1,4 @@
-package com.autocoin.global.config;
+package com.autocoin.global.config.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

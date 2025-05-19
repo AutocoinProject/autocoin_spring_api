@@ -1,4 +1,4 @@
-package com.autocoin.global.config;
+package com.autocoin.global.config.web;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;

@@ -1,4 +1,4 @@
-package com.autocoin.global.config;
+package com.autocoin.global.config.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;

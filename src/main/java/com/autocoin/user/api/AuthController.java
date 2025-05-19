@@ -1,6 +1,6 @@
 package com.autocoin.user.api;
 
-import com.autocoin.global.config.JwtTokenProvider;
+import com.autocoin.global.config.security.JwtTokenProvider;
 import com.autocoin.user.application.UserService;
 import com.autocoin.user.domain.User;
 import com.autocoin.user.dto.UserLoginRequestDto;

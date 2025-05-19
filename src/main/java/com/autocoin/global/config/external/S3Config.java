@@ -1,4 +1,4 @@
-package com.autocoin.global.config;
+package com.autocoin.global.config.external;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;

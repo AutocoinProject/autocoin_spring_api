@@ -1,4 +1,4 @@
-package com.autocoin.global.config;
+package com.autocoin.global.config.web;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;

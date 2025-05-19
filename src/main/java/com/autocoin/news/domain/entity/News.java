@@ -43,6 +43,7 @@ public class News extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Category category;
     
+    @Builder.Default
     private Integer viewCount = 0;
     
     // 뉴스 카테고리

@@ -1,4 +1,4 @@
-package com.autocoin.global.config;
+package com.autocoin.global.config.security;
 
 import com.autocoin.user.oauth.CustomOAuth2UserService;
 import com.autocoin.user.oauth.OAuth2AuthenticationSuccessHandler;
