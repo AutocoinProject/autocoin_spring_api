@@ -42,6 +42,9 @@ public class User implements UserDetails {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+    
+    private String provider; // oauth2 provider (google, kakao, etc)
+    private String providerId; // oauth2 provider의 고유 id
 
     @PrePersist
     protected void onCreate() {

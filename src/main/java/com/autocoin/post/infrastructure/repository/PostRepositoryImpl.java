@@ -1,6 +1,6 @@
-package com.autocoin.post.infrastructure;
+package com.autocoin.post.infrastructure.repository;
 
-import com.autocoin.post.domain.Post;
+import com.autocoin.post.domain.entity.Post;
 import com.autocoin.post.domain.PostRepository;
 import com.autocoin.user.domain.User;
 import lombok.RequiredArgsConstructor;

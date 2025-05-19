@@ -4,7 +4,7 @@ import com.autocoin.file.domain.File;
 import com.autocoin.file.domain.FileRepository;
 import com.autocoin.global.exception.CustomException;
 import com.autocoin.global.exception.ErrorCode;
-import com.autocoin.global.util.S3Uploader;
+import com.autocoin.file.application.service.S3Uploader;
 import com.autocoin.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,20 +24,24 @@ public class FileService {
 
     @Transactional
     public File uploadFile(MultipartFile multipartFile, User user) {
-        // S3에 파일 업로드
-        String fileUrl = s3Uploader.upload(multipartFile, S3_DIRECTORY);
-        
-        // 파일 정보 저장
-        File file = File.builder()
-                .originalFileName(multipartFile.getOriginalFilename())
-                .storedFileName(extractFileNameFromUrl(fileUrl))
-                .fileUrl(fileUrl)
-                .contentType(multipartFile.getContentType())
-                .fileSize(multipartFile.getSize())
-                .user(user)
-                .build();
-                
-        return fileRepository.save(file);
+        try {
+            // S3에 파일 업로드
+            String fileUrl = s3Uploader.upload(multipartFile, S3_DIRECTORY);
+            
+            // 파일 정보 저장
+            File file = File.builder()
+                    .originalFileName(multipartFile.getOriginalFilename())
+                    .storedFileName(extractFileNameFromUrl(fileUrl))
+                    .fileUrl(fileUrl)
+                    .contentType(multipartFile.getContentType())
+                    .fileSize(multipartFile.getSize())
+                    .user(user)
+                    .build();
+                    
+            return fileRepository.save(file);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.FILE_UPLOAD_ERROR);
+        }
     }
     
     @Transactional(readOnly = true)
@@ -62,7 +66,8 @@ public class FileService {
         }
         
         // S3에서 파일 삭제
-        s3Uploader.delete(file.getFileUrl());
+        String fileKey = extractFileKeyFromUrl(file.getFileUrl());
+        s3Uploader.delete(fileKey);
         
         // DB에서 파일 정보 삭제
         fileRepository.delete(file);
@@ -70,5 +75,12 @@ public class FileService {
     
     private String extractFileNameFromUrl(String fileUrl) {
         return fileUrl.substring(fileUrl.lastIndexOf("/") + 1);
+    }
+    
+    private String extractFileKeyFromUrl(String fileUrl) {
+        // https://bucket-name.s3.region.amazonaws.com/files/filename.ext
+        // 에서 "files/filename.ext" 부분만 추출
+        String fileName = extractFileNameFromUrl(fileUrl);
+        return S3_DIRECTORY + "/" + fileName;
     }
 }

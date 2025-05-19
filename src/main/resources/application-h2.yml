@@ -1,0 +1,31 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET:your-dev-s3-bucket}
+    credentials:
+      access-key: ${AWS_ACCESS_KEY:your-dev-aws-access-key}
+      secret-key: ${AWS_SECRET_KEY:your-dev-aws-secret-key}
+    region:
+      static: ${AWS_REGION:ap-northeast-2}
+    stack:
+      auto: false

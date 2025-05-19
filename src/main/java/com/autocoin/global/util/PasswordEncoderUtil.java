@@ -15,6 +15,10 @@ public class PasswordEncoderUtil {
     }
 
     public boolean matches(String rawPassword, String encodedPassword) {
+        // OAuth2 사용자는 비밀번호가 비어있을 수 있음
+        if (encodedPassword == null || encodedPassword.isEmpty()) {
+            return false;
+        }
         return passwordEncoder.matches(rawPassword, encodedPassword);
     }
 }
