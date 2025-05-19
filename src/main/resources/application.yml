@@ -94,6 +94,17 @@ serp:
   api:
     key: ${SERP_API_KEY:test-key}
 
+# Slack Configuration
+slack:
+  webhook:
+    url: ${SLACK_WEBHOOK_URL:}
+  notifications:
+    enabled: ${SLACK_NOTIFICATIONS_ENABLED:false}
+    channels:
+      errors: ${SLACK_ERROR_CHANNEL:#errors}
+      alerts: ${SLACK_ALERT_CHANNEL:#alerts}
+      trades: ${SLACK_TRADE_CHANNEL:#trades}
+
 # Upbit API Configuration
 app:
   upbit:

@@ -4,6 +4,7 @@ import com.autocoin.global.config.security.JwtTokenProvider;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -67,7 +69,10 @@ public class JwtTokenProviderTest {
         // Given: JwtTokenProvider의 비공개 필드를 ReflectionTestUtils를 사용하여 직접 설정
         ReflectionTestUtils.setField(jwtTokenProvider, "secretKey", secretKey);
         ReflectionTestUtils.setField(jwtTokenProvider, "tokenValidTime", tokenValidTime);
-        jwtTokenProvider.init(); // 키 초기화 메소드 호출
+        
+        // Reflection을 사용해서 키를 직접 설정
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+        ReflectionTestUtils.setField(jwtTokenProvider, "key", key);
     }
 
     /**
