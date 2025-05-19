@@ -55,13 +55,13 @@ public class GlobalExceptionHandler {
         log.error("Custom Exception: {}", ex.getMessage());
         
         ErrorResponse response = ErrorResponse.builder()
-                .status(ex.getErrorCode().getStatus())
+                .status(ex.getErrorCode().getStatus().value())
                 .code(ex.getErrorCode().getCode())
                 .message(ex.getErrorCode().getMessage())
                 .timestamp(LocalDateTime.now())
                 .build();
         
-        return new ResponseEntity<>(response, HttpStatus.valueOf(ex.getErrorCode().getStatus()));
+        return new ResponseEntity<>(response, ex.getErrorCode().getStatus());
     }
     
     @ExceptionHandler(Exception.class)
