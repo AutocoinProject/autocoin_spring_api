@@ -60,7 +60,7 @@ class PostServiceTest {
         given(postRepository.save(any(Post.class))).willReturn(savedPost);
 
         // when
-        PostResponseDto responseDto = postService.createPost(requestDto);
+        PostResponseDto responseDto = postService.createPost(requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();
@@ -108,7 +108,7 @@ class PostServiceTest {
         given(postRepository.save(any(Post.class))).willReturn(savedPost);
 
         // when
-        PostResponseDto responseDto = postService.createPost(requestDto);
+        PostResponseDto responseDto = postService.createPost(requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();
@@ -222,7 +222,7 @@ class PostServiceTest {
         given(postRepository.findById(postId)).willReturn(Optional.of(existingPost));
 
         // when
-        PostResponseDto responseDto = postService.updatePost(postId, requestDto);
+        PostResponseDto responseDto = postService.updatePost(postId, requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();
@@ -273,7 +273,7 @@ class PostServiceTest {
         doNothing().when(s3Uploader).delete(anyString());
 
         // when
-        PostResponseDto responseDto = postService.updatePost(postId, requestDto);
+        PostResponseDto responseDto = postService.updatePost(postId, requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();

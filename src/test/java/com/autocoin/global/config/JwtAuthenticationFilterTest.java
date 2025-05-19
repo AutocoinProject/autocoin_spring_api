@@ -1,5 +1,8 @@
 package com.autocoin.global.config;
 
+import com.autocoin.global.config.security.JwtTokenProvider;
+import com.autocoin.global.config.security.JwtAuthenticationFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

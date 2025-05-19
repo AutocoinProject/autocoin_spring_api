@@ -63,7 +63,7 @@ class PostControllerTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        given(postService.createPost(any(PostRequestDto.class))).willReturn(responseDto);
+        given(postService.createPost(any(PostRequestDto.class), any())).willReturn(responseDto);
 
         // when & then
         mockMvc.perform(multipart("/api/v1/posts")
@@ -167,7 +167,7 @@ class PostControllerTest {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
-        given(postService.updatePost(eq(postId), any(PostRequestDto.class))).willReturn(responseDto);
+        given(postService.updatePost(eq(postId), any(PostRequestDto.class), any())).willReturn(responseDto);
 
         // when & then
         mockMvc.perform(multipart("/api/v1/posts/{id}", postId)

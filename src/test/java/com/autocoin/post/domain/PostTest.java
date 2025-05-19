@@ -61,7 +61,7 @@ class PostTest {
         String newFileKey = "posts/updated.jpg";
 
         // when
-        post.update(newTitle, newContent, newFileUrl, newFileName, newFileKey);
+        post.update(newTitle, newContent, newFileUrl, newFileName, newFileKey, "수정된 작성자");
 
         // then
         assertThat(post.getTitle()).isEqualTo(newTitle);
@@ -92,7 +92,7 @@ class PostTest {
         String newContent = "수정된 내용";
 
         // when
-        post.update(newTitle, newContent, null, null, null);
+        post.update(newTitle, newContent, null, null, null, "수정된 작성자");
 
         // then
         assertThat(post.getTitle()).isEqualTo(newTitle);

@@ -1,5 +1,7 @@
 package com.autocoin.global.config;
 
+import com.autocoin.global.config.security.JwtTokenProvider;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.HttpServletRequest;
