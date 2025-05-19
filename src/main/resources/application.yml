@@ -89,6 +89,19 @@ cors:
 oauth2:
   redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/redirect}
 
+# News API Configuration
+serp:
+  api:
+    key: ${SERP_API_KEY:test-key}
+
+# Upbit API Configuration
+app:
+  upbit:
+    api:
+      url: ${UPBIT_API_URL:https://api.upbit.com}
+    encryption:
+      key: ${UPBIT_ENCRYPTION_KEY:autocoin-upbit-encrypt-key-32ch0}
+
 cloud:
   aws:
     s3:

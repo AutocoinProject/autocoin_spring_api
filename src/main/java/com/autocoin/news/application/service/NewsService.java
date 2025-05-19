@@ -9,6 +9,7 @@ import com.autocoin.news.dto.response.NewsResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +35,18 @@ public class NewsService {
     private final NewsRepository newsRepository;
     private final RestTemplate restTemplate;
     
-    @Value("${serp.api.key}")
+    @Value("${serp.api.key:}")
     private String serpApiKey;
     
     @Scheduled(fixedRate = 3600000) // 1시간마다 실행
     @Transactional
     public void collectCryptocurrencyNews() {
+        // API 키가 없는 경우 뉴스 수집 스킵
+        if (serpApiKey == null || serpApiKey.trim().isEmpty()) {
+            log.info("SERP API 키가 설정되지 않아 뉴스 수집을 스킵합니다.");
+            return;
+        }
+        
         log.info("암호화폐 뉴스 수집 시작");
         
         try {

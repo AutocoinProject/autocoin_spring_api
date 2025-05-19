@@ -65,6 +65,10 @@ public class JwtAuthenticationFilterTest {
         // 각 테스트 전에 필터 객체와 보안 컨텍스트 초기화
         jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider);
         SecurityContextHolder.clearContext();
+        
+        // 기본적으로 필터가 실행되도록 URI 설정
+        when(request.getRequestURI()).thenReturn("/api/test");
+        when(request.getMethod()).thenReturn("GET");
     }
 
     /**
@@ -84,7 +88,7 @@ public class JwtAuthenticationFilterTest {
         given(jwtTokenProvider.getAuthentication(token)).willReturn(authentication);
 
         // When: 필터 실행
-        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
 
         // Then: 필터체인이 계속 실행되고, 인증 정보가 올바르게 처리되는지 검증
         verify(filterChain, times(1)).doFilter(request, response);
@@ -106,7 +110,7 @@ public class JwtAuthenticationFilterTest {
         given(jwtTokenProvider.resolveToken(request)).willReturn(null);
 
         // When: 필터 실행
-        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
 
         // Then: 필터체인이 계속 실행되고, 인증 처리가 호출되지 않는지 검증
         verify(filterChain, times(1)).doFilter(request, response);
@@ -131,7 +135,7 @@ public class JwtAuthenticationFilterTest {
         given(jwtTokenProvider.validateToken(token)).willReturn(false);
 
         // When: 필터 실행
-        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
 
         // Then: 필터체인이 계속 실행되고, 인증 처리가 호출되지 않는지 검증
         verify(filterChain, times(1)).doFilter(request, response);
@@ -156,7 +160,7 @@ public class JwtAuthenticationFilterTest {
         given(jwtTokenProvider.validateToken(token)).willThrow(new RuntimeException("Token validation error"));
 
         // When: 필터 실행
-        jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+        jwtAuthenticationFilter.doFilter(request, response, filterChain);
 
         // Then: 예외가 발생해도 필터체인이 계속 실행되고, 보안 컨텍스트가 비워지는지 검증
         verify(filterChain, times(1)).doFilter(request, response);

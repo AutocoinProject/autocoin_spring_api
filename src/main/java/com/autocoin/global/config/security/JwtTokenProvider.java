@@ -39,8 +39,9 @@ public class JwtTokenProvider {
     }
 
     // Initialize the key using the secret from application.yml
+    // Package visible for testing
     @PostConstruct
-    protected void init() {
+    void init() {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 
