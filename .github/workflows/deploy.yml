@@ -95,44 +95,65 @@ jobs:
         name: jar-artifacts
         path: build/libs/
     
-    - name: Deploy to EC2 - Prepare Environment
+    - name: Copy deployment scripts to EC2
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        source: "scripts/*.sh"
+        target: "~"
+        strip_components: 1
+    
+    - name: Make scripts executable
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
         debug: true
-        timeout: 5m
-        command_timeout: 5m
-        script_stop: false
-        use_insecure_cipher: true
         script: |
-          # 디버깅 출력 추가
-          echo "Starting preparation phase..."
-          # 새 JAR 파일 복사 준비
-          mkdir -p ~/app && echo "App directory created successfully"
-          # 로그 디렉토리 확인
-          mkdir -p /var/log/autocoin || echo "Log directory already exists"
-          echo "Preparation complete"
-          
-    - name: Deploy to EC2 - Stop Existing Process
+          chmod +x ~/deploy.sh
+          chmod +x ~/setup_env.sh
+          ls -la ~/*.sh
+    
+    - name: Setup environment variables
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
         debug: true
-        timeout: 5m
-        command_timeout: 5m
-        script_stop: false
-        use_insecure_cipher: true
+        envs: DB_USERNAME,DB_PASSWORD,DATABASE_URL,JWT_SECRET,UPBIT_ENCRYPTION_KEY,AWS_ACCESS_KEY,AWS_SECRET_KEY,AWS_S3_BUCKET,AWS_REGION,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_SECRET,SERP_API_KEY
         script: |
-          echo "Stopping existing processes..."
-          # 기존 프로세스 종료
-          sudo pkill -f autocoin || echo "No existing process found to kill or kill failed"
-          echo "Process termination attempted"
-          ps aux | grep autocoin || echo "No autocoin processes found"
-          
+          export DB_USERNAME="$DB_USERNAME"
+          export DB_PASSWORD="$DB_PASSWORD"
+          export DATABASE_URL="$DATABASE_URL"
+          export JWT_SECRET="$JWT_SECRET"
+          export UPBIT_ENCRYPTION_KEY="$UPBIT_ENCRYPTION_KEY"
+          export AWS_ACCESS_KEY="$AWS_ACCESS_KEY"
+          export AWS_SECRET_KEY="$AWS_SECRET_KEY"
+          export AWS_S3_BUCKET="$AWS_S3_BUCKET"
+          export AWS_REGION="$AWS_REGION"
+          export GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID"
+          export GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET"
+          export KAKAO_CLIENT_SECRET="$KAKAO_CLIENT_SECRET"
+          export SERP_API_KEY="$SERP_API_KEY"
+          sed -i "s/{{DB_USERNAME}}/$DB_USERNAME/g" ~/setup_env.sh
+          sed -i "s/{{DB_PASSWORD}}/$DB_PASSWORD/g" ~/setup_env.sh
+          sed -i "s/{{DATABASE_URL}}/$DATABASE_URL/g" ~/setup_env.sh
+          sed -i "s/{{JWT_SECRET}}/$JWT_SECRET/g" ~/setup_env.sh
+          sed -i "s/{{UPBIT_ENCRYPTION_KEY}}/$UPBIT_ENCRYPTION_KEY/g" ~/setup_env.sh
+          sed -i "s/{{AWS_ACCESS_KEY}}/$AWS_ACCESS_KEY/g" ~/setup_env.sh
+          sed -i "s/{{AWS_SECRET_KEY}}/$AWS_SECRET_KEY/g" ~/setup_env.sh
+          sed -i "s/{{AWS_S3_BUCKET}}/$AWS_S3_BUCKET/g" ~/setup_env.sh
+          sed -i "s/{{AWS_REGION}}/$AWS_REGION/g" ~/setup_env.sh
+          sed -i "s/{{GOOGLE_CLIENT_ID}}/$GOOGLE_CLIENT_ID/g" ~/setup_env.sh
+          sed -i "s/{{GOOGLE_CLIENT_SECRET}}/$GOOGLE_CLIENT_SECRET/g" ~/setup_env.sh
+          sed -i "s/{{KAKAO_CLIENT_SECRET}}/$KAKAO_CLIENT_SECRET/g" ~/setup_env.sh
+          sed -i "s/{{SERP_API_KEY}}/$SERP_API_KEY/g" ~/setup_env.sh
+          ~/setup_env.sh
+    
     - name: Copy JAR to EC2
       uses: appleboy/scp-action@v0.1.4
       with:
@@ -143,94 +164,33 @@ jobs:
         target: "~/app/"
         strip_components: 2
     
-    - name: Start application - Set Environment Variables
+    - name: Run deployment script
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
         debug: true
-        timeout: 5m
-        command_timeout: 5m
-        script_stop: false
-        use_insecure_cipher: true
         script: |
-          echo "Setting up environment variables..."
-          cd ~/app
-          echo "Changed directory to ~/app"
-          
-          # 환경변수 설정
-          echo "Setting environment variables to file..."
-          cat > ~/app/.env <<EOF
-          DB_USERNAME="${{ secrets.DB_USERNAME }}"
-          DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-          DATABASE_URL="${{ secrets.DATABASE_URL }}"
-          JWT_SECRET="${{ secrets.JWT_SECRET }}"
-          UPBIT_ENCRYPTION_KEY="${{ secrets.UPBIT_ENCRYPTION_KEY }}"
-          AWS_ACCESS_KEY="${{ secrets.AWS_ACCESS_KEY }}"
-          AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}"
-          AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
-          AWS_REGION="${{ secrets.AWS_REGION }}"
-          GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
-          GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
-          KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}"
-          SERP_API_KEY="${{ secrets.SERP_API_KEY }}"
-          EOF
-          echo "Environment variables saved to file"
-          
-    - name: Start application - Launch App
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_PRIVATE_KEY }}
-        debug: true
-        timeout: 5m
-        command_timeout: 5m
-        script_stop: false
-        use_insecure_cipher: true
-        script: |
-          echo "Starting application..."
-          cd ~/app
-          echo "Loading environment variables"
-          source ~/.env 2>/dev/null || echo "No env file found in home directory"
-          source ~/app/.env 2>/dev/null || echo "No env file found in app directory"
-          
-          # 애플리케이션 시작
-          echo "Starting application with java -jar..."
-          nohup java -jar *.jar \
-            --spring.profiles.active=prod \
-            > /var/log/autocoin/application.log 2>&1 &
-          echo "Application started in background with PID: $!"
-          ps aux | grep java
-          
-    - name: Start application - Health Check
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ${{ secrets.EC2_USERNAME }}
-        key: ${{ secrets.EC2_PRIVATE_KEY }}
-        debug: true
-        timeout: 5m
-        command_timeout: 5m
-        script_stop: false
-        use_insecure_cipher: true
-        script: |
-          echo "Preparing for health check..."
-          # 헬스체크
-          echo "Waiting 30 seconds before health check..."
-          sleep 30
-          echo "Performing health check..."
-          curl -v http://localhost:8080/health || echo "Health check failed with exit code $?"
-          echo "Checking application logs:"
-          tail -n 20 /var/log/autocoin/application.log || echo "Could not read log file"
+          cd ~ && ./deploy.sh
     
-    - name: Health Check
+    - name: Check deployment status
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        debug: true
+        script: |
+          ps aux | grep java | grep -v grep || echo "No Java processes running"
+          curl -v http://localhost:8080/health || echo "Health check failed from server"
+    
+    - name: Final Health Check
       run: |
         echo "Waiting 10 seconds before final health check..."
         sleep 10
         echo "Performing final health check..."
-        curl -v http://${{ secrets.EC2_HOST }}:8080/health || true
+        curl -v http://${{ secrets.EC2_HOST }}:8080/health || echo "Health check failed but continuing workflow"
 
   deploy-render:
     needs: build
