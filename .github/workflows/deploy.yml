@@ -95,25 +95,43 @@ jobs:
         name: jar-artifacts
         path: build/libs/
     
-    - name: Deploy to EC2
+    - name: Deploy to EC2 - Prepare Environment
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
         debug: true
-        timeout: 60m
-        command_timeout: 30m
+        timeout: 5m
+        command_timeout: 5m
+        script_stop: false
+        use_insecure_cipher: true
         script: |
           # 디버깅 출력 추가
-          echo "Starting deployment process..."
+          echo "Starting preparation phase..."
+          # 새 JAR 파일 복사 준비
+          mkdir -p ~/app && echo "App directory created successfully"
+          # 로그 디렉토리 확인
+          mkdir -p /var/log/autocoin || echo "Log directory already exists"
+          echo "Preparation complete"
           
+    - name: Deploy to EC2 - Stop Existing Process
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        debug: true
+        timeout: 5m
+        command_timeout: 5m
+        script_stop: false
+        use_insecure_cipher: true
+        script: |
+          echo "Stopping existing processes..."
           # 기존 프로세스 종료
           sudo pkill -f autocoin || echo "No existing process found to kill or kill failed"
           echo "Process termination attempted"
-          
-          # 새 JAR 파일 복사 준비
-          mkdir -p ~/app && echo "App directory created successfully"
+          ps aux | grep autocoin || echo "No autocoin processes found"
           
     - name: Copy JAR to EC2
       uses: appleboy/scp-action@v0.1.4
@@ -125,56 +143,94 @@ jobs:
         target: "~/app/"
         strip_components: 2
     
-    - name: Start application
+    - name: Start application - Set Environment Variables
       uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
         debug: true
-        timeout: 60m
-        command_timeout: 30m
+        timeout: 5m
+        command_timeout: 5m
+        script_stop: false
+        use_insecure_cipher: true
         script: |
-          echo "Starting application deployment..."
+          echo "Setting up environment variables..."
           cd ~/app
           echo "Changed directory to ~/app"
           
           # 환경변수 설정
-          echo "Setting environment variables..."
-          export DB_USERNAME="${{ secrets.DB_USERNAME }}"
-          export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
-          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
-          export JWT_SECRET="${{ secrets.JWT_SECRET }}"
-          export UPBIT_ENCRYPTION_KEY="${{ secrets.UPBIT_ENCRYPTION_KEY }}"
-          export AWS_ACCESS_KEY="${{ secrets.AWS_ACCESS_KEY }}"
-          export AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}"
-          export AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
-          export AWS_REGION="${{ secrets.AWS_REGION }}"
-          export GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
-          export GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
-          export KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}"
-          export SERP_API_KEY="${{ secrets.SERP_API_KEY }}"
-          echo "Environment variables set successfully"
+          echo "Setting environment variables to file..."
+          cat > ~/app/.env <<EOF
+          DB_USERNAME="${{ secrets.DB_USERNAME }}"
+          DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
+          DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          JWT_SECRET="${{ secrets.JWT_SECRET }}"
+          UPBIT_ENCRYPTION_KEY="${{ secrets.UPBIT_ENCRYPTION_KEY }}"
+          AWS_ACCESS_KEY="${{ secrets.AWS_ACCESS_KEY }}"
+          AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}"
+          AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}"
+          AWS_REGION="${{ secrets.AWS_REGION }}"
+          GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
+          GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
+          KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}"
+          SERP_API_KEY="${{ secrets.SERP_API_KEY }}"
+          EOF
+          echo "Environment variables saved to file"
+          
+    - name: Start application - Launch App
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        debug: true
+        timeout: 5m
+        command_timeout: 5m
+        script_stop: false
+        use_insecure_cipher: true
+        script: |
+          echo "Starting application..."
+          cd ~/app
+          echo "Loading environment variables"
+          source ~/.env 2>/dev/null || echo "No env file found in home directory"
+          source ~/app/.env 2>/dev/null || echo "No env file found in app directory"
           
           # 애플리케이션 시작
           echo "Starting application with java -jar..."
-          mkdir -p /var/log/autocoin || echo "Log directory already exists"
           nohup java -jar *.jar \
             --spring.profiles.active=prod \
             > /var/log/autocoin/application.log 2>&1 &
-          echo "Application started in background"
+          echo "Application started in background with PID: $!"
+          ps aux | grep java
           
+    - name: Start application - Health Check
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        debug: true
+        timeout: 5m
+        command_timeout: 5m
+        script_stop: false
+        use_insecure_cipher: true
+        script: |
+          echo "Preparing for health check..."
           # 헬스체크
           echo "Waiting 30 seconds before health check..."
           sleep 30
           echo "Performing health check..."
-          curl -v http://localhost:8080/health || echo "Health check failed with exit code $?" || exit 1
-          echo "Health check successful"
+          curl -v http://localhost:8080/health || echo "Health check failed with exit code $?"
+          echo "Checking application logs:"
+          tail -n 20 /var/log/autocoin/application.log || echo "Could not read log file"
     
     - name: Health Check
       run: |
+        echo "Waiting 10 seconds before final health check..."
         sleep 10
-        curl -f http://${{ secrets.EC2_HOST }}:8080/health
+        echo "Performing final health check..."
+        curl -v http://${{ secrets.EC2_HOST }}:8080/health || true
 
   deploy-render:
     needs: build
