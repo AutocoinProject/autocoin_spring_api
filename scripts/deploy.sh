@@ -12,7 +12,10 @@ ps aux | grep autocoin || echo "No autocoin processes running"
 # 2. Prepare directories
 echo "Preparing directories..."
 mkdir -p ~/app
-mkdir -p /var/log/autocoin
+
+# 로그 디렉토리 생성 (홈 디렉토리에 생성)
+mkdir -p ~/logs/autocoin
+echo "Directory structure prepared"
 
 # 3. Setup environment variables from ENV file
 echo "Setting up environment variables..."
@@ -33,7 +36,7 @@ if [ -z "$JAR_FILE" ]; then
 fi
 
 echo "Using JAR file: $JAR_FILE"
-nohup java -jar $JAR_FILE --spring.profiles.active=prod > /var/log/autocoin/application.log 2>&1 &
+nohup java -jar $JAR_FILE --spring.profiles.active=prod > ~/logs/autocoin/application.log 2>&1 &
 APP_PID=$!
 echo "Application started with PID: $APP_PID"
 
@@ -46,7 +49,7 @@ if curl -f http://localhost:8080/health; then
   echo "Health check successful!"
 else
   echo "Health check failed. Checking logs..."
-  tail -n 50 /var/log/autocoin/application.log
+  tail -n 50 ~/logs/autocoin/application.log || echo "Could not read log file"
   echo "Application may not have started correctly. Please check logs for details."
   # We don't exit with error here to prevent failing the CI/CD pipeline
   # This allows for manual investigation
