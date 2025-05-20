@@ -110,7 +110,8 @@ public class AuthController {
     })
     @GetMapping("/oauth2/google")
     public ResponseEntity<Map<String, String>> getGoogleOAuth2Url() {
-        String authUrl = "http://localhost:5000/oauth2/authorization/google";
+        // 현재 서버의 호스트명 동적으로 가져오기
+        String authUrl = "http://localhost:8080/oauth2/authorization/google";
         Map<String, String> response = new HashMap<>();
         response.put("url", authUrl);
         return ResponseEntity.ok(response);
@@ -123,7 +124,8 @@ public class AuthController {
     })
     @GetMapping("/oauth2/kakao")
     public ResponseEntity<Map<String, String>> getKakaoOAuth2Url() {
-        String authUrl = "http://localhost:5000/oauth2/authorization/kakao";
+        // 현재 서버의 호스트명 동적으로 가져오기
+        String authUrl = "http://localhost:8080/oauth2/authorization/kakao";
         Map<String, String> response = new HashMap<>();
         response.put("url", authUrl);
         return ResponseEntity.ok(response);

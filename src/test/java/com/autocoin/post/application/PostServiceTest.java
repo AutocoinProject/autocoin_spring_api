@@ -71,7 +71,8 @@ class PostServiceTest {
         assertThat(responseDto.getFileUrl()).isNull();
         
         verify(postRepository, times(1)).save(any(Post.class));
-        verify(s3Uploader, never()).upload(any(MultipartFile.class), anyString());
+        // S3 업로드가 호출되지 않았는지 확인
+        verifyNoInteractions(s3Uploader);
     }
 
     @Test
@@ -232,8 +233,8 @@ class PostServiceTest {
         assertThat(responseDto.getWriter()).isEqualTo(requestDto.getWriter());
         
         verify(postRepository, times(1)).findById(postId);
-        verify(s3Uploader, never()).upload(any(MultipartFile.class), anyString());
-        verify(s3Uploader, never()).delete(anyString());
+        // S3 메서드들이 호출되지 않았는지 확인
+        verifyNoInteractions(s3Uploader);
     }
 
     @Test

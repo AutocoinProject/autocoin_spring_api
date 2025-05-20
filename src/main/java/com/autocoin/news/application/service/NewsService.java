@@ -39,6 +39,7 @@ public class NewsService {
     private String serpApiKey;
     
     @Scheduled(fixedRate = 3600000) // 1시간마다 실행
+    @ConditionalOnProperty(name = "news.scheduler.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void collectCryptocurrencyNews() {
         // API 키가 없는 경우 뉴스 수집 스킵
@@ -62,6 +63,7 @@ public class NewsService {
         }
     }
     
+    @SuppressWarnings("unchecked")
     private void collectNewsByKeyword(String keyword, News.Category category) {
         try {
             String url = String.format(
@@ -72,6 +74,7 @@ public class NewsService {
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
             if (response != null && response.containsKey("news_results")) {
+                @SuppressWarnings("unchecked")
                 List<Map<String, Object>> newsResults = (List<Map<String, Object>>) response.get("news_results");
                 
                 int newNewsCount = 0;
@@ -156,6 +159,7 @@ public class NewsService {
     }
     
     @Scheduled(cron = "0 0 15 * * ?") // 매일 오후 3시
+    @ConditionalOnProperty(name = "news.scheduler.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void cleanupOldNews() {
         log.info("오래된 뉴스 정리 시작");

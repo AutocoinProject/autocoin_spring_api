@@ -32,7 +32,13 @@ public class S3Uploader {
      * @throws IOException 파일 업로드 실패 시 발생
      */
     public String upload(MultipartFile multipartFile, String dirName) throws IOException {
+        log.info("S3Uploader.upload 메서드 호출 - 파일명: {}, 파일 크기: {}, 디렉토리: {}", 
+                multipartFile != null ? multipartFile.getOriginalFilename() : "null",
+                multipartFile != null ? multipartFile.getSize() : 0,
+                dirName);
+                
         if (multipartFile == null || multipartFile.isEmpty()) {
+            log.warn("S3Uploader - 업로드할 파일이 null이거나 비어 있습니다.");
             return null;
         }
 
@@ -47,12 +53,14 @@ public class S3Uploader {
         try {
             amazonS3.putObject(new PutObjectRequest(bucket, fileKey, multipartFile.getInputStream(), metadata)
                     .withCannedAcl(CannedAccessControlList.PublicRead));
+                    
+            String s3Url = amazonS3.getUrl(bucket, fileKey).toString();
+            log.info("S3 업로드 성공: URL={}", s3Url);
+            return s3Url;
         } catch (IOException e) {
             log.error("S3 파일 업로드 중 오류 발생: {}", e.getMessage());
             throw new IOException("파일 업로드 실패", e);
         }
-
-        return amazonS3.getUrl(bucket, fileKey).toString();
     }
 
     /**

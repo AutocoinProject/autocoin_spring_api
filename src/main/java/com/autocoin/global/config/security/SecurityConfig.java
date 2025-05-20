@@ -1,11 +1,14 @@
 package com.autocoin.global.config.security;
 
+import com.autocoin.global.exception.ErrorResponse;
 import com.autocoin.user.oauth.CustomOAuth2UserService;
 import com.autocoin.user.oauth.OAuth2AuthenticationSuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +21,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -27,6 +31,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 
@@ -48,8 +53,47 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptionHandling ->
+                        exceptionHandling
+                                .authenticationEntryPoint((request, response, authException) -> {
+                                    // 인증되지 않은 요청에 대해 401 응답
+                                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                                    
+                                    ErrorResponse errorResponse = ErrorResponse.builder()
+                                            .status(HttpServletResponse.SC_UNAUTHORIZED)
+                                            .code("C001")
+                                            .message("Unauthorized access")
+                                            .timestamp(LocalDateTime.now())
+                                            .build();
+                                    
+                                    objectMapper.writeValue(response.getOutputStream(), errorResponse);
+                                })
+                                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                                    // 권한 없는 요청에 대해 403 응답
+                                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                                    
+                                    ErrorResponse errorResponse = ErrorResponse.builder()
+                                            .status(HttpServletResponse.SC_FORBIDDEN)
+                                            .code("C002")
+                                            .message("Access denied")
+                                            .timestamp(LocalDateTime.now())
+                                            .build();
+                                    
+                                    objectMapper.writeValue(response.getOutputStream(), errorResponse);
+                                })
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // 임시로 모든 요청 허용
+                        // 공개 API 엔드포인트
+                        .requestMatchers("/health", "/api/health").permitAll()
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup").permitAll()
+                        .requestMatchers("/api/v1/auth/oauth2/**").permitAll()
+                        .requestMatchers("/oauth2/authorization/**").permitAll()
+                        .requestMatchers("/login/oauth2/code/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // 나머지 API는 인증 필요
+                        .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
@@ -60,7 +104,7 @@ public class SecurityConfig {
                         .authorizationEndpoint(authorization -> authorization
                                 .baseUri("/oauth2/authorization"))
                         )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, objectMapper), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

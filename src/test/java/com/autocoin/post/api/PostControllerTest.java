@@ -1,5 +1,6 @@
 package com.autocoin.post.api;
 
+import com.autocoin.config.TestConfig;
 import com.autocoin.global.exception.ResourceNotFoundException;
 import com.autocoin.post.api.controller.PostController;
 import com.autocoin.post.application.service.PostService;
@@ -8,9 +9,12 @@ import com.autocoin.post.dto.response.PostResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -28,8 +32,10 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(PostController.class)
+@WebMvcTest(controllers = PostController.class, properties = "spring.profiles.active=webmvc")
+@Import(TestConfig.class)
 @WithMockUser
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PostControllerTest {
 
     @Autowired

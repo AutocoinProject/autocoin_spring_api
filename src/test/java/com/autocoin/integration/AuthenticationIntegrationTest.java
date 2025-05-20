@@ -14,7 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -45,7 +48,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test") // 테스트 프로파일 활성화
-@Transactional // 각 테스트 후 롤백
+@DirtiesContext(classMode = ClassMode.BEFORE_EACH_TEST_METHOD)
+@Sql(scripts = "/sql/schema.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 public class AuthenticationIntegrationTest {
 
     @Autowired
@@ -70,14 +74,18 @@ public class AuthenticationIntegrationTest {
     @BeforeEach
     public void setup() {
         // 테스트 전에 기존 사용자 삭제 (이메일 중복 방지)
-        userRepository.findByEmail("integrationtest@example.com")
-                .ifPresent(user -> userRepository.delete(user));
+        try {
+            userRepository.findByEmail("integrationtest@example.com")
+                    .ifPresent(user -> userRepository.delete(user));
+        } catch (Exception e) {
+            // 테이블이 아직 생성되지 않았을 경우 무시
+        }
 
         // 회원가입 요청 DTO 설정
         signupRequestDto = UserSignupRequestDto.builder()
                 .email("integrationtest@example.com")
                 .password("IntegrationTest123!")
-                .username("integrationtester")
+                .username("tester")
                 .build();
 
         // 로그인 요청 DTO 설정
@@ -97,6 +105,7 @@ public class AuthenticationIntegrationTest {
      */
     @Test
     @DisplayName("회원가입-로그인-내정보 조회 통합 테스트")
+    @Transactional
     public void fullAuthenticationFlow() throws Exception {
         // 1. Given & When: 회원가입 요청 실행
         ResultActions signupResult = mockMvc.perform(post("/api/v1/auth/signup")
@@ -107,7 +116,7 @@ public class AuthenticationIntegrationTest {
         signupResult.andDo(print())
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.email").value("integrationtest@example.com"))
-                .andExpect(jsonPath("$.username").value("integrationtester"));
+                .andExpect(jsonPath("$.username").value("tester"));
 
         // 2. Given & When: 로그인 요청 실행
         ResultActions loginResult = mockMvc.perform(post("/api/v1/auth/login")
@@ -118,6 +127,7 @@ public class AuthenticationIntegrationTest {
         MvcResult mvcResult = loginResult.andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").exists())
+                .andExpect(jsonPath("$.user.username").value("tester"))
                 .andExpect(jsonPath("$.user.email").value("integrationtest@example.com"))
                 .andReturn();
 
@@ -138,7 +148,7 @@ public class AuthenticationIntegrationTest {
         meResult.andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("integrationtest@example.com"))
-                .andExpect(jsonPath("$.username").value("integrationtester"));
+                .andExpect(jsonPath("$.username").value("tester"));
     }
 
     /**
@@ -149,12 +159,13 @@ public class AuthenticationIntegrationTest {
      */
     @Test
     @DisplayName("로그인 실패 테스트 - 잘못된 비밀번호")
+    @Transactional
     public void loginFailure_WrongPassword() throws Exception {
         // Given: 사용자 미리 생성
         User user = User.builder()
                 .email("wrongpassword@example.com")
                 .password(passwordEncoderUtil.encode("CorrectPassword123!"))
-                .username("wrongpasswordtester")
+                .username("wrongpass")
                 .role(Role.ROLE_USER)
                 .build();
         userRepository.save(user);
@@ -183,6 +194,7 @@ public class AuthenticationIntegrationTest {
      */
     @Test
     @DisplayName("인증 없이 보호된 경로 접근 시 실패 테스트")
+    @Transactional
     public void accessProtectedRouteWithoutAuth() throws Exception {
         // Given: 인증 정보 없음
 
@@ -202,6 +214,7 @@ public class AuthenticationIntegrationTest {
      */
     @Test
     @DisplayName("만료된 토큰으로 접근 시 실패 테스트")
+    @Transactional
     public void accessWithExpiredToken() throws Exception {
         // Given: 만료된 토큰 (형식만 맞춘 임의의 토큰)
         String expiredToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwiZXhwIjoxNTc1MTU0MDAwfQ.P7xxiHds1qMNvJWMLx-xyLuYlGBfxF8SIcDbbcgr_qI";

@@ -23,13 +23,13 @@ import java.time.LocalDateTime;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     
     private static final String[] EXCLUDED_PATHS = {
-        "/", 
         "/health", 
         "/api/cors-test",
+        "/api/v1/auth/login",
+        "/api/v1/auth/signup",
         "/api/v1/auth/oauth2/google",
         "/api/v1/auth/oauth2/kakao",
         "/oauth2/authorization/google",

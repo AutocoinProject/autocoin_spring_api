@@ -32,6 +32,13 @@ spring:
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
 
+  # Jackson 설정 - Java 8 날짜/시간 타입 지원
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+    modules:
+      - com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+
   datasource:
     url: jdbc:mysql://localhost:3307/autocoin_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USERNAME:root}

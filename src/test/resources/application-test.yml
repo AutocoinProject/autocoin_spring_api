@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL;DATABASE_TO_LOWER=TRUE
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -10,15 +10,31 @@ spring:
       ddl-auto: create-drop
     properties:
       hibernate:
-        format_sql: true
-    show-sql: true
+        format_sql: false  # 테스트 로그 정리를 위해 false
+        show_sql: false   # 테스트 로그 정리를 위해 false
+        dialect: org.hibernate.dialect.H2Dialect
+    defer-datasource-initialization: false  # false로 변경
+    database-platform: org.hibernate.dialect.H2Dialect
     
+  # Jackson 설정 - Java 8 날짜/시간 타입 지원
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+    modules:
+      - com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+
   # 파일 업로드 설정
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+      
+  # 스케줄링 비활성화 (테스트 환경)
+  task:
+    scheduling:
+      enable: false
 
+# S3 Mock 설정
 cloud:
   aws:
     s3:
@@ -30,3 +46,31 @@ cloud:
       static: ap-northeast-2
     stack:
       auto: false
+
+# JWT 테스트 설정
+jwt:
+  secret: test-jwt-secret-key-for-testing-purposes-only-not-for-production-environment
+  expiration: 1800000
+
+# 로깅 레벨 조정
+logging:
+  level:
+    com.autocoin: INFO
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+
+# 뉴스 API 테스트 설정 (비활성화)
+news:
+  serpapi:
+    api-key: test-api-key
+  scheduler:
+    enabled: false  # 테스트 시 스케줄러 비활성화
+
+# 전체 스케줄어 비활성화
+spring.task.scheduling.enabled: false
+
+# 테스트 트랜잭션 설정
+spring.test.database.replace: NONE
+spring.jpa.database-platform: org.hibernate.dialect.H2Dialect

@@ -159,16 +159,19 @@ public class JwtTokenProviderTest {
     @Test
     @DisplayName("JWT 토큰 유효성 검증 테스트 - 만료된 토큰")
     void validateToken_ExpiredToken() {
-        // Given: 토큰 유효 시간을 1ms로 설정하여 바로 만료되는 토큰 생성
-        ReflectionTestUtils.setField(jwtTokenProvider, "tokenValidTime", 1L);
-        String token = jwtTokenProvider.createToken(userId, email, roles);
-
-        // 토큰이 만료되도록 잠시 대기
-        try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // Given: 만료된 토큰을 직접 생성
+        long now = new Date().getTime();
+        Date expirationDate = new Date(now - 1000); // 1초 전에 만료된 날짜
+        
+        Key key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+        String token = Jwts.builder()
+                .setSubject(email)
+                .claim("roles", roles)
+                .claim("userId", userId)
+                .setIssuedAt(new Date(now))
+                .setExpiration(expirationDate) // 이미 만료된 날짜 설정
+                .signWith(key)
+                .compact();
 
         // When: 만료된 토큰 유효성 검증
         boolean isValid = jwtTokenProvider.validateToken(token);

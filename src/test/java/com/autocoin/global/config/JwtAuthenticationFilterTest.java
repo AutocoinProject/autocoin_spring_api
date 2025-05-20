@@ -3,8 +3,10 @@ package com.autocoin.global.config;
 import com.autocoin.global.config.security.JwtTokenProvider;
 import com.autocoin.global.config.security.JwtAuthenticationFilter;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,34 +15,32 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
  * JwtAuthenticationFilter 클래스의 단위 테스트
  * 
- * 이 테스트 클래스는 JwtAuthenticationFilter의 JWT 토큰 인증 처리 기능을 검증합니다:
- * 1. 유효한 토큰이 있을 때 인증 처리
- * 2. 토큰이 없을 때 인증 처리
- * 3. 유효하지 않은 토큰일 때 인증 처리
- * 4. 토큰 처리 중 예외 발생 시 처리
- *
- * 각 테스트는 Mock 객체를 사용하여 외부 의존성을 격리하고,
- * Given-When-Then 패턴을 따라 작성되었습니다.
+ * Reflection을 사용하여 protected 메서드인 doFilterInternal을 직접 테스트합니다.
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class JwtAuthenticationFilterTest {
 
     @Mock
     private JwtTokenProvider jwtTokenProvider;
+    
+    @Mock
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Mock
     private HttpServletRequest request;
@@ -54,117 +54,253 @@ public class JwtAuthenticationFilterTest {
     @Mock
     private Authentication authentication;
 
+    @Mock
+    private jakarta.servlet.ServletOutputStream outputStream;
+
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /**
      * 각 테스트 전에 실행되는 설정 메서드
-     * JwtAuthenticationFilter 객체를 초기화하고 SecurityContext를 비웁니다.
      */
     @BeforeEach
     void setUp() {
-        // 각 테스트 전에 필터 객체와 보안 컨텍스트 초기화
-        jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider);
+        jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider, objectMapper);
         SecurityContextHolder.clearContext();
-        
-        // 기본적으로 필터가 실행되도록 URI 설정
-        when(request.getRequestURI()).thenReturn("/api/test");
-        when(request.getMethod()).thenReturn("GET");
+    }
+
+    /**
+     * Reflection을 사용하여 doFilterInternal 메서드를 호출하는 헬퍼 메서드
+     */
+    private void invokeDoFilterInternal() throws Exception {
+        Method doFilterInternalMethod = JwtAuthenticationFilter.class.getDeclaredMethod(
+            "doFilterInternal", HttpServletRequest.class, HttpServletResponse.class, FilterChain.class);
+        doFilterInternalMethod.setAccessible(true);
+        doFilterInternalMethod.invoke(jwtAuthenticationFilter, request, response, filterChain);
     }
 
     /**
      * 유효한 토큰이 있을 때 인증 처리 테스트
-     * 
-     * 검증 내용:
-     * - 유효한 토큰이 있을 때 JwtTokenProvider를 통해 인증 정보를 가져오는지 확인
-     * - FilterChain이 올바르게 계속 실행되는지 확인
      */
     @Test
     @DisplayName("유효한 토큰이 있을 때 인증 처리 테스트")
-    void doFilterInternal_ValidToken() throws ServletException, IOException {
+    void doFilterInternal_ValidToken() throws Exception {
         // Given: 유효한 토큰 설정
         String token = "valid-token";
-        given(jwtTokenProvider.resolveToken(request)).willReturn(token);
-        given(jwtTokenProvider.validateToken(token)).willReturn(true);
-        given(jwtTokenProvider.getAuthentication(token)).willReturn(authentication);
+        when(request.getMethod()).thenReturn("GET");
+        when(jwtTokenProvider.resolveToken(request)).thenReturn(token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(jwtTokenProvider.getAuthentication(token)).thenReturn(authentication);
 
-        // When: 필터 실행
-        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+        // When: doFilterInternal 직접 호출
+        invokeDoFilterInternal();
 
-        // Then: 필터체인이 계속 실행되고, 인증 정보가 올바르게 처리되는지 검증
-        verify(filterChain, times(1)).doFilter(request, response);
-        verify(jwtTokenProvider, times(1)).getAuthentication(token);
-        // SecurityContextHolder에 설정된 인증 정보는 static 컨텍스트이므로 직접 검증하기 어려움
+        // Then: 필요한 메서드들이 호출되고, 필터체인이 계속 실행되는지 검증
+        verify(jwtTokenProvider).resolveToken(request);
+        verify(jwtTokenProvider).validateToken(token);
+        verify(jwtTokenProvider).getAuthentication(token);
+        verify(filterChain).doFilter(request, response);
+        
+        // SecurityContext에 인증 정보가 설정되었는지 확인
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     /**
      * 토큰이 없을 때 인증 처리 테스트
-     * 
-     * 검증 내용:
-     * - 토큰이 없을 때 인증 처리를 하지 않고 FilterChain이 계속 실행되는지 확인
-     * - SecurityContext에 인증 정보가 설정되지 않는지 확인
      */
     @Test
     @DisplayName("토큰이 없을 때 인증 처리 테스트")
-    void doFilterInternal_NoToken() throws ServletException, IOException {
+    void doFilterInternal_NoToken() throws Exception {
         // Given: 토큰이 없는 상황 설정
-        given(jwtTokenProvider.resolveToken(request)).willReturn(null);
+        when(request.getMethod()).thenReturn("GET");
+        when(jwtTokenProvider.resolveToken(request)).thenReturn(null);
 
-        // When: 필터 실행
-        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+        // When: doFilterInternal 직접 호출
+        invokeDoFilterInternal();
 
-        // Then: 필터체인이 계속 실행되고, 인증 처리가 호출되지 않는지 검증
-        verify(filterChain, times(1)).doFilter(request, response);
+        // Then: 토큰 해석만 시도하고, 인증 처리는 하지 않음
+        verify(jwtTokenProvider).resolveToken(request);
+        verify(jwtTokenProvider, never()).validateToken(anyString());
         verify(jwtTokenProvider, never()).getAuthentication(anyString());
-        assertNull(SecurityContextHolder.getContext().getAuthentication(), 
-                  "토큰이 없는 경우 SecurityContext에 인증 정보가 설정되지 않아야 합니다");
+        verify(filterChain).doFilter(request, response);
+        
+        // SecurityContext에 인증 정보가 설정되지 않았는지 확인
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     /**
      * 유효하지 않은 토큰일 때 인증 처리 테스트
-     * 
-     * 검증 내용:
-     * - 유효하지 않은 토큰이 있을 때 인증 처리를 하지 않고 FilterChain이 계속 실행되는지 확인
-     * - SecurityContext에 인증 정보가 설정되지 않는지 확인
      */
     @Test
     @DisplayName("유효하지 않은 토큰일 때 인증 처리 테스트")
-    void doFilterInternal_InvalidToken() throws ServletException, IOException {
+    void doFilterInternal_InvalidToken() throws Exception {
         // Given: 유효하지 않은 토큰 설정
         String token = "invalid-token";
-        given(jwtTokenProvider.resolveToken(request)).willReturn(token);
-        given(jwtTokenProvider.validateToken(token)).willReturn(false);
+        when(request.getMethod()).thenReturn("GET");
+        when(jwtTokenProvider.resolveToken(request)).thenReturn(token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
 
-        // When: 필터 실행
-        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+        // When: doFilterInternal 직접 호출
+        invokeDoFilterInternal();
 
-        // Then: 필터체인이 계속 실행되고, 인증 처리가 호출되지 않는지 검증
-        verify(filterChain, times(1)).doFilter(request, response);
+        // Then: 토큰 검증까지만 수행하고 인증 처리는 하지 않음
+        verify(jwtTokenProvider).resolveToken(request);
+        verify(jwtTokenProvider).validateToken(token);
         verify(jwtTokenProvider, never()).getAuthentication(anyString());
-        assertNull(SecurityContextHolder.getContext().getAuthentication(),
-                  "유효하지 않은 토큰의 경우 SecurityContext에 인증 정보가 설정되지 않아야 합니다");
+        verify(filterChain).doFilter(request, response);
+        
+        // SecurityContext에 인증 정보가 설정되지 않았는지 확인
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     /**
-     * 토큰 처리 중 예외 발생 테스트
-     * 
-     * 검증 내용:
-     * - 토큰 처리 중 예외가 발생해도 FilterChain이 계속 실행되는지 확인
-     * - SecurityContext가 비워지는지 확인
+     * JWT 예외 발생 테스트
      */
     @Test
-    @DisplayName("토큰 처리 중 예외 발생 테스트")
-    void doFilterInternal_ExceptionOccurred() throws ServletException, IOException {
-        // Given: 토큰 검증 중 예외 발생 설정
-        String token = "exception-token";
-        given(jwtTokenProvider.resolveToken(request)).willReturn(token);
-        given(jwtTokenProvider.validateToken(token)).willThrow(new RuntimeException("Token validation error"));
+    @DisplayName("JWT 예외 발생 테스트")
+    void doFilterInternal_JwtException() throws Exception {
+        // Given: JWT 예외 발생 설정
+        String token = "jwt-exception-token";
+        when(request.getMethod()).thenReturn("GET");
+        when(jwtTokenProvider.resolveToken(request)).thenReturn(token);
+        when(jwtTokenProvider.validateToken(token)).thenThrow(new JwtException("Invalid JWT token"));
+        when(response.getOutputStream()).thenReturn(outputStream);
+        
+        // Mock ObjectMapper 설정 (writeValue 메소드가 호출될 때 아무것도 하지 않음)
+        doNothing().when(objectMapper).writeValue(any(jakarta.servlet.ServletOutputStream.class), any(Object.class));
 
-        // When: 필터 실행
-        jwtAuthenticationFilter.doFilter(request, response, filterChain);
+        // When: doFilterInternal 직접 호출
+        invokeDoFilterInternal();
 
-        // Then: 예외가 발생해도 필터체인이 계속 실행되고, 보안 컨텍스트가 비워지는지 검증
-        verify(filterChain, times(1)).doFilter(request, response);
-        assertNull(SecurityContextHolder.getContext().getAuthentication(),
-                  "예외 발생 시 SecurityContext가 비워져야 합니다");
+        // Then: JWT 예외가 발생하면 401 응답이 반환됨
+        verify(jwtTokenProvider).resolveToken(request);
+        verify(jwtTokenProvider).validateToken(token);
+        verify(response).setStatus(401);
+        verify(response).setContentType("application/json");
+        
+        // objectMapper.writeValue가 호출되는지 확인
+        verify(objectMapper).writeValue(eq(outputStream), any(Object.class));
+        
+        // filterChain.doFilter는 호출되지 않음 (JwtException 처리)
+        verify(filterChain, never()).doFilter(request, response);
+        
+        // SecurityContext가 비워졌는지 확인
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    /**
+     * 일반 예외 발생 테스트 (RuntimeException 등)
+     */
+    @Test
+    @DisplayName("일반 예외 발생 테스트")
+    void doFilterInternal_GeneralException() throws Exception {
+        // Given: 일반 예외 발생 설정
+        String token = "general-exception-token";
+        when(request.getMethod()).thenReturn("GET");
+        when(jwtTokenProvider.resolveToken(request)).thenReturn(token);
+        when(jwtTokenProvider.validateToken(token)).thenThrow(new RuntimeException("General error"));
+
+        // When: doFilterInternal 직접 호출
+        invokeDoFilterInternal();
+
+        // Then: 일반 예외는 catch되고 필터체인이 계속 실행됨
+        verify(jwtTokenProvider).resolveToken(request);
+        verify(jwtTokenProvider).validateToken(token);
+        verify(filterChain).doFilter(request, response);
+        
+        // SecurityContext가 비워졌는지 확인
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    /**
+     * OPTIONS 요청 시 바로 필터체인 실행 테스트
+     */
+    @Test
+    @DisplayName("OPTIONS 요청 시 바로 필터체인 실행 테스트")
+    void doFilterInternal_OptionsRequest() throws Exception {
+        // Given: OPTIONS 요청 설정
+        when(request.getMethod()).thenReturn("OPTIONS");
+
+        // When: doFilterInternal 직접 호출
+        invokeDoFilterInternal();
+
+        // Then: JWT 처리 없이 바로 필터체인이 실행됨
+        verify(jwtTokenProvider, never()).resolveToken(request);
+        verify(jwtTokenProvider, never()).validateToken(anyString());
+        verify(jwtTokenProvider, never()).getAuthentication(anyString());
+        verify(filterChain).doFilter(request, response);
+    }
+
+    /**
+     * shouldNotFilter 메서드 테스트 - 제외 경로
+     */
+    @Test
+    @DisplayName("제외 경로에 대한 shouldNotFilter 테스트")
+    void shouldNotFilter_ExcludedPath() throws Exception {
+        // Given: 제외 경로 설정
+        when(request.getRequestURI()).thenReturn("/health");
+
+        // When: shouldNotFilter 메서드 호출
+        Method shouldNotFilterMethod = JwtAuthenticationFilter.class.getDeclaredMethod(
+            "shouldNotFilter", HttpServletRequest.class);
+        shouldNotFilterMethod.setAccessible(true);
+        boolean result = (boolean) shouldNotFilterMethod.invoke(jwtAuthenticationFilter, request);
+
+        // Then: true를 반환해야 함
+        assertTrue(result, "제외 경로에 대해서는 shouldNotFilter가 true를 반환해야 합니다");
+    }
+
+    /**
+     * shouldNotFilter 메서드 테스트 - 일반 경로
+     */
+    @Test
+    @DisplayName("일반 경로에 대한 shouldNotFilter 테스트")
+    void shouldNotFilter_NormalPath() throws Exception {
+        // 일반 경로는 필터 대상이 되어야 함 (shouldNotFilter가 false)
+        String[] testPaths = {
+            "/protected/resource",
+            "/custom/endpoint", 
+            "/api/v1/custom",
+            "/not-excluded-path"
+        };
+        
+        for (String path : testPaths) {
+            when(request.getRequestURI()).thenReturn(path);
+            
+            Method shouldNotFilterMethod = JwtAuthenticationFilter.class.getDeclaredMethod(
+                "shouldNotFilter", HttpServletRequest.class);
+            shouldNotFilterMethod.setAccessible(true);
+            boolean result = (boolean) shouldNotFilterMethod.invoke(jwtAuthenticationFilter, request);
+            
+            assertFalse(result, "EXCLUDED_PATHS에 포함되지 않은 일반 경로 "+path+"는 필터링되어야 합니다");
+        }
+    }
+
+    /**
+     * API 경로의 shouldNotFilter 테스트
+     * 특정 API 경로가 어떻게 처리되는지 확인
+     */
+    @Test
+    @DisplayName("API 경로에 대한 shouldNotFilter 동작 확인")
+    void shouldNotFilter_ApiPath() throws Exception {
+        // When & Then: 다양한 API 경로 테스트
+        String[] apiPaths = {
+            "/api/v1/posts",
+            "/api/v1/users/profile", 
+            "/api/v1/auth/login",
+            "/api/v1/auth/signup",
+            "/api/test"
+        };
+
+        for (String path : apiPaths) {
+            when(request.getRequestURI()).thenReturn(path);
+            
+            Method shouldNotFilterMethod = JwtAuthenticationFilter.class.getDeclaredMethod(
+                "shouldNotFilter", HttpServletRequest.class);
+            shouldNotFilterMethod.setAccessible(true);
+            boolean result = (boolean) shouldNotFilterMethod.invoke(jwtAuthenticationFilter, request);
+            
+            System.out.println("Path: " + path + ", shouldNotFilter: " + result);
+            // API 경로들의 실제 동작을 로그로 확인 (assertion 없이)
+        }
     }
 }

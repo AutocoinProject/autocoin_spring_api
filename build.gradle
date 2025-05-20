@@ -70,12 +70,43 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:mysql'
+    testImplementation 'com.h2database:h2'
+    testImplementation 'io.findify:s3mock_2.13:0.2.6'
+    
+    // Mockito 테스트 지원 (spring-boot-starter-test에 포함되어 있으므로 버전 제거)
+    // testImplementation 'org.mockito:mockito-core'
+    // testImplementation 'org.mockito:mockito-junit-jupiter'
+    // testImplementation 'org.mockito:mockito-inline'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    
+    // 테스트 JVM 설정
+    jvmArgs = [
+        '--add-opens=java.base/java.lang=ALL-UNNAMED',
+        '--add-opens=java.base/java.util=ALL-UNNAMED',
+        '--add-opens=java.base/java.time=ALL-UNNAMED'
+    ]
+    
     // 테스트 시 시스템 속성 설정
     systemProperty 'spring.profiles.active', 'test'
+    systemProperty 'spring.test.context.cache.maxSize', '1'
+    
+    // 테스트 실패 시 상세 정보 출력
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showExceptions true
+        showCauses true
+        showStackTraces true
+    }
+    
+    // 테스트 메모리 설정
+    maxHeapSize = "1024m"
+    
+    // 테스트 병렬 실행 비활성화 (안정성 향상)
+    maxParallelForks = 1
 }
 
 // JAR 빌드 설정
