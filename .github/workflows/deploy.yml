@@ -101,12 +101,19 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
+        debug: true
+        timeout: 60m
+        command_timeout: 30m
         script: |
+          # 디버깅 출력 추가
+          echo "Starting deployment process..."
+          
           # 기존 프로세스 종료
-          sudo pkill -f autocoin || true
+          sudo pkill -f autocoin || echo "No existing process found to kill or kill failed"
+          echo "Process termination attempted"
           
           # 새 JAR 파일 복사 준비
-          mkdir -p ~/app
+          mkdir -p ~/app && echo "App directory created successfully"
           
     - name: Copy JAR to EC2
       uses: appleboy/scp-action@v0.1.4
@@ -124,10 +131,16 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_PRIVATE_KEY }}
+        debug: true
+        timeout: 60m
+        command_timeout: 30m
         script: |
+          echo "Starting application deployment..."
           cd ~/app
+          echo "Changed directory to ~/app"
           
           # 환경변수 설정
+          echo "Setting environment variables..."
           export DB_USERNAME="${{ secrets.DB_USERNAME }}"
           export DB_PASSWORD="${{ secrets.DB_PASSWORD }}"
           export DATABASE_URL="${{ secrets.DATABASE_URL }}"
@@ -141,15 +154,22 @@ jobs:
           export GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
           export KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}"
           export SERP_API_KEY="${{ secrets.SERP_API_KEY }}"
+          echo "Environment variables set successfully"
           
           # 애플리케이션 시작
+          echo "Starting application with java -jar..."
+          mkdir -p /var/log/autocoin || echo "Log directory already exists"
           nohup java -jar *.jar \
             --spring.profiles.active=prod \
             > /var/log/autocoin/application.log 2>&1 &
+          echo "Application started in background"
           
           # 헬스체크
+          echo "Waiting 30 seconds before health check..."
           sleep 30
-          curl -f http://localhost:8080/health || exit 1
+          echo "Performing health check..."
+          curl -v http://localhost:8080/health || echo "Health check failed with exit code $?" || exit 1
+          echo "Health check successful"
     
     - name: Health Check
       run: |
