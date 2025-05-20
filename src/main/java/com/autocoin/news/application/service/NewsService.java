@@ -42,8 +42,9 @@ public class NewsService {
     @ConditionalOnProperty(name = "news.scheduler.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void collectCryptocurrencyNews() {
-        // API 키가 없는 경우 뉴스 수집 스킵
-        if (serpApiKey == null || serpApiKey.trim().isEmpty()) {
+        // API 키가 없거나 기본값(테스트 키)인 경우 뉴스 수집 스킵
+        if (serpApiKey == null || serpApiKey.trim().isEmpty() || "test-key".equals(serpApiKey) || 
+            serpApiKey.equals("your-default-serp-api-key")) {
             log.info("SERP API 키가 설정되지 않아 뉴스 수집을 스킵합니다.");
             return;
         }

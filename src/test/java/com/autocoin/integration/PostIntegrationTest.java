@@ -18,6 +18,8 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlGroup;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -45,6 +47,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Transactional
 @WithMockUser(username = "test@example.com", roles = "USER")
+@SqlGroup({
+    @Sql(scripts = "/schema.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD),
+    @Sql(scripts = "/clean-up.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+})
 class PostIntegrationTest {
 
     @Autowired
@@ -64,8 +70,7 @@ class PostIntegrationTest {
         // S3 업로더 모킹 - 막소마장으로 모든 메서드 재정의
         mockS3Uploader();
         
-        // 테스트 데이터 초기화
-        postJpaRepository.deleteAll();
+        // 테이블이 초기화될 것임 (Sql 어노테이션을 통해)
     }
     
     /**

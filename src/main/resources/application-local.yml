@@ -33,3 +33,8 @@ cloud:
       static: ap-northeast-2
     stack:
       auto: false
+
+# 뉴스 스케줄러 비활성화 (테스트 시)
+news:
+  scheduler:
+    enabled: false

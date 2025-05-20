@@ -35,6 +35,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     implementation 'org.springframework.boot:spring-boot-starter-aop' // AOP 지원
     
+    // .env 파일 처리를 위한 라이브러리 
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+    
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
@@ -72,11 +75,6 @@ dependencies {
     testImplementation 'org.testcontainers:mysql'
     testImplementation 'com.h2database:h2'
     testImplementation 'io.findify:s3mock_2.13:0.2.6'
-    
-    // Mockito 테스트 지원 (spring-boot-starter-test에 포함되어 있으므로 버전 제거)
-    // testImplementation 'org.mockito:mockito-core'
-    // testImplementation 'org.mockito:mockito-junit-jupiter'
-    // testImplementation 'org.mockito:mockito-inline'
 }
 
 tasks.named('test') {
@@ -109,6 +107,12 @@ tasks.named('test') {
     maxParallelForks = 1
 }
 
+// 캐시 문제 해결을 위한 컴파일 설정
+compileJava {
+    options.fork = true
+    options.incremental = false
+}
+
 // JAR 빌드 설정
 jar {
     enabled = false // 기본 JAR 비활성화
@@ -124,4 +128,12 @@ bootJar {
 // 빌드 시 테스트 실행 여부
 if (project.hasProperty('skipTests')) {
     test.enabled = false
+}
+
+// 빌드 디렉토리 정리
+clean {
+    doFirst {
+        delete "${buildDir}"
+        delete "${rootDir}/out"
+    }
 }
