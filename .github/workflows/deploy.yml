@@ -31,8 +31,8 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
-    - name: Run tests
-      run: ./gradlew test
+    - name: Run tests with JaCoCo coverage
+      run: ./gradlew test jacocoTestReport
       env:
         SPRING_PROFILES_ACTIVE: test
     
@@ -42,6 +42,16 @@ jobs:
       with:
         name: test-results
         path: build/reports/tests/
+    
+    - name: Upload JaCoCo coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: jacoco-report
+        path: build/reports/jacoco/
+    
+    - name: Check JaCoCo coverage
+      run: ./gradlew jacocoTestCoverageVerification || echo "Coverage verification failed but continuing workflow"
 
   build:
     needs: test

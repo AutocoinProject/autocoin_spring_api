@@ -2,7 +2,11 @@ plugins {
     id 'org.springframework.boot' version '3.2.4'
     id 'io.spring.dependency-management' version '1.1.4'
     id 'java'
+    id 'jacoco'  // JaCoCo 플러그인 추가
 }
+
+// sonar.gradle 적용 (선택적)
+//apply from: 'sonar.gradle'
 
 group = 'com.autocoin'
 version = '0.0.1-SNAPSHOT'
@@ -77,6 +81,65 @@ dependencies {
     testImplementation 'io.findify:s3mock_2.13:0.2.6'
 }
 
+// JaCoCo 설정
+jacoco {
+    toolVersion = "0.8.11"  // JaCoCo 버전 지정
+}
+
+// JaCoCo 리포트 태스크 설정
+jacocoTestReport {
+    dependsOn test  // 테스트 후 리포트 생성
+    reports {
+        xml.required = true  // XML 리포트 생성 (SonarQube 등과 통합 시 필요)
+        html.required = true  // HTML 리포트 생성
+        csv.required = false  // CSV 리포트는 선택사항
+    }
+    
+    // 코드 커버리지 측정에서 제외할 클래스들
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                "**/config/**",
+                "**/dto/**",
+                "**/entity/**",
+                "**/AutocoinSpringApiApplication.class",
+                "**/exception/**",
+                "**/repository/**"  // 필요시 제외 대상 조정
+            ])
+        }))
+    }
+}
+
+// JaCoCo 테스트 커버리지 검증 태스크
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport  // 리포트 생성 후 검증
+    violationRules {
+        rule {
+            element = 'CLASS'
+            // 최소 커버리지 기준 설정
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.5  // 라인 커버리지 50% 이상
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.5  // 분기 커버리지 50% 이상
+            }
+            // 커버리지 검증에서 제외할 클래스들
+            excludes = [
+                '*.config.*',
+                '*.dto.*',
+                '*.entity.*',
+                '*.exception.*',
+                '*.AutocoinSpringApiApplication'
+            ]
+        }
+    }
+}
+
+// 테스트 태스크 설정
 tasks.named('test') {
     useJUnitPlatform()
     
@@ -105,6 +168,9 @@ tasks.named('test') {
     
     // 테스트 병렬 실행 비활성화 (안정성 향상)
     maxParallelForks = 1
+    
+    // JaCoCo 테스트 실행을 위한 설정
+    finalizedBy jacocoTestReport
 }
 
 // 캐시 문제 해결을 위한 컴파일 설정
