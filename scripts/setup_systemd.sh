@@ -9,6 +9,10 @@ echo "Creating systemd service file..."
 # Get the username
 CURRENT_USER=$(whoami)
 
+# Get the actual JAR file name
+JAR_NAME=$(ls -t ~/app/*.jar | head -1 | xargs basename)
+echo "Using JAR file: $JAR_NAME"
+
 # Create service file content
 cat > autocoin.service << EOF
 [Unit]
@@ -18,7 +22,7 @@ After=network.target mysql.service
 [Service]
 User=${CURRENT_USER}
 WorkingDirectory=/home/${CURRENT_USER}/app
-ExecStart=/usr/bin/java -jar /home/${CURRENT_USER}/app/\$(ls -t /home/${CURRENT_USER}/app/*.jar | head -1) --spring.profiles.active=prod -Xmx512m -Xms256m
+ExecStart=/usr/bin/java -jar /home/${CURRENT_USER}/app/${JAR_NAME} --spring.profiles.active=prod -Xmx512m -Xms256m
 SuccessExitStatus=143
 TimeoutStopSec=10
 Restart=always

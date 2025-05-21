@@ -43,6 +43,7 @@ if [ -z "$JAR_FILE" ]; then
 fi
 
 echo "Using JAR file: $JAR_FILE"
+JAR_NAME=$(basename "$JAR_FILE")
 
 # 4. Set up as systemd service
 echo "Setting up as systemd service..."
@@ -53,7 +54,7 @@ else
   echo "setup_systemd.sh not found. Creating it on the fly..."
   
   # Create systemd setup script
-  cat > ./setup_systemd.sh << 'EOF'
+  cat > ./setup_systemd.sh << EOF
 #!/bin/bash
 set -e
 
@@ -63,27 +64,27 @@ echo "=== Setting up AutoCoin as a systemd service ==="
 echo "Creating systemd service file..."
 
 # Get the username
-CURRENT_USER=$(whoami)
+CURRENT_USER=\$(whoami)
 
 # Create service file content
-cat > autocoin.service << EOF
+cat > autocoin.service << EOF2
 [Unit]
 Description=AutoCoin Spring API Service
 After=network.target mysql.service
 
 [Service]
-User=${CURRENT_USER}
-WorkingDirectory=/home/${CURRENT_USER}/app
-ExecStart=/usr/bin/java -jar /home/${CURRENT_USER}/app/\$(ls -t /home/${CURRENT_USER}/app/*.jar | head -1) --spring.profiles.active=prod -Xmx512m -Xms256m
+User=\${CURRENT_USER}
+WorkingDirectory=/home/\${CURRENT_USER}/app
+ExecStart=/usr/bin/java -jar /home/\${CURRENT_USER}/app/${JAR_NAME} --spring.profiles.active=prod -Xmx512m -Xms256m
 SuccessExitStatus=143
 TimeoutStopSec=10
 Restart=always
 RestartSec=5
-EnvironmentFile=/home/${CURRENT_USER}/app/.env
+EnvironmentFile=/home/\${CURRENT_USER}/app/.env
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF2
 
 # 2. Copy to systemd directory
 echo "Installing service file to systemd..."
