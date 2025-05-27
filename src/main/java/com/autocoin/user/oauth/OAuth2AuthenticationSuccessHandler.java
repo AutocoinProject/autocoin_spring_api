@@ -1,6 +1,6 @@
 package com.autocoin.user.oauth;
 
-import com.autocoin.global.config.JwtTokenProvider;
+import com.autocoin.global.config.security.JwtTokenProvider;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

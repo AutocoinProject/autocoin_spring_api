@@ -40,12 +40,26 @@ public class PostService {
             String fileName = null;
             String fileKey = null;
             
+            // 디버깅 로그 추가
+            log.info("createPost 초기 파라미터: requestDto.title={}, requestDto.file={}", 
+                    requestDto.getTitle(), 
+                    requestDto.getFile() != null ? requestDto.getFile().getOriginalFilename() : "null");
+            
             MultipartFile file = requestDto.getFile();
             if (file != null && !file.isEmpty()) {
+                log.info("upload 호출 전: file.name={}, file.size={}", 
+                        file.getOriginalFilename(), file.getSize());
+                
+                // S3 업로더를 통한 파일 업로드
                 fileUrl = s3Uploader.upload(file, S3_DIRECTORY);
+                
+                log.info("upload 호출 후: fileUrl={}", fileUrl);
+                
                 fileName = file.getOriginalFilename();
                 // S3 업로드 후 반환되는 URL에서 키 추출
                 fileKey = S3_DIRECTORY + "/" + fileName.substring(fileName.lastIndexOf("/") + 1);
+            } else {
+                log.warn("file이 null이거나 비어 있습니다.");
             }
 
             // 작성자 정보 처리 - writer가 없으면 현재 사용자의 username 사용
@@ -77,8 +91,13 @@ public class PostService {
             }
             
             Post post = postBuilder.build();
+            log.info("저장할 게시글: title={}, fileUrl={}, fileName={}", 
+                    post.getTitle(), post.getFileUrl(), post.getFileName());
 
             Post savedPost = postRepository.save(post);
+            log.info("저장된 게시글: id={}, title={}, fileUrl={}", 
+                    savedPost.getId(), savedPost.getTitle(), savedPost.getFileUrl());
+                    
             return PostResponseDto.of(savedPost);
         } catch (IOException e) {
             log.error("글 작성 중 파일 업로드 오류: {}", e.getMessage());

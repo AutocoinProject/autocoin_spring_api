@@ -129,6 +129,63 @@ public class UpbitController {
         return ResponseEntity.ok(candles);
     }
     
+    @PostMapping("/test-connection")
+    @Operation(summary = "업비트 API 연결 테스트", description = "API 키 없이 업비트 연결을 테스트합니다.")
+    public ResponseEntity<Map<String, Object>> testConnection() {
+        try {
+            // 공개 API로 마켓 정보 조회를 통해 연결 테스트
+            List<Map<String, Object>> markets = upbitApiClient.getMarkets();
+            
+            boolean isConnected = markets != null && !markets.isEmpty();
+            
+            Map<String, Object> response = Map.of(
+                    "connected", isConnected,
+                    "message", isConnected ? "업비트 API 연결 성공" : "업비트 API 연결 실패",
+                    "marketCount", isConnected ? markets.size() : 0,
+                    "timestamp", System.currentTimeMillis()
+            );
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = Map.of(
+                    "connected", false,
+                    "message", "업비트 API 연결 실패: " + e.getMessage(),
+                    "error", e.getClass().getSimpleName(),
+                    "timestamp", System.currentTimeMillis()
+            );
+            return ResponseEntity.ok(response);
+        }
+    }
+    
+    @PostMapping("/test-auth")
+    @Operation(summary = "업비트 API 키 테스트", description = "제공된 API 키로 인증을 테스트합니다.")
+    public ResponseEntity<Map<String, Object>> testAuth(
+            @Parameter(description = "업비트 Access Key")
+            @RequestParam String accessKey,
+            @Parameter(description = "업비트 Secret Key")
+            @RequestParam String secretKey) {
+        try {
+            // API 키 유효성 검증
+            boolean isValid = upbitService.validateApiKeys(accessKey, secretKey);
+            
+            Map<String, Object> response = Map.of(
+                    "valid", isValid,
+                    "message", isValid ? "API 키가 유효합니다" : "API 키가 유효하지 않습니다",
+                    "timestamp", System.currentTimeMillis()
+            );
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = Map.of(
+                    "valid", false,
+                    "message", "API 키 검증 중 오류 발생: " + e.getMessage(),
+                    "error", e.getClass().getSimpleName(),
+                    "timestamp", System.currentTimeMillis()
+            );
+            return ResponseEntity.ok(response);
+        }
+    }
+    
     @GetMapping("/trades/ticks")
     @Operation(summary = "체결 내역 조회", description = "특정 마켓의 체결 내역을 조회합니다.")
     public ResponseEntity<List<Map<String, Object>>> getTrades(

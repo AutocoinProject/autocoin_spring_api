@@ -2,7 +2,11 @@ plugins {
     id 'org.springframework.boot' version '3.2.4'
     id 'io.spring.dependency-management' version '1.1.4'
     id 'java'
+    id 'jacoco'  // JaCoCo 플러그인 추가
 }
+
+// sonar.gradle 적용 (선택적)
+//apply from: 'sonar.gradle'
 
 group = 'com.autocoin'
 version = '0.0.1-SNAPSHOT'
@@ -65,17 +69,125 @@ dependencies {
     // Development tools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     
+    // Monitoring & Observability
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+    implementation 'io.micrometer:micrometer-observation'
+    
+    // Sentry for Error Tracking
+    implementation 'io.sentry:sentry-spring-boot-starter-jakarta:7.14.0'
+    implementation 'io.sentry:sentry-logback:7.14.0'
+    
+    // Additional monitoring dependencies
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'net.ttddyy:datasource-proxy:1.8.1'
+    
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:mysql'
+    testImplementation 'com.h2database:h2'
+    testImplementation 'io.findify:s3mock_2.13:0.2.6'
 }
 
+// JaCoCo 설정
+jacoco {
+    toolVersion = "0.8.11"  // JaCoCo 버전 지정
+}
+
+// JaCoCo 리포트 태스크 설정
+jacocoTestReport {
+    dependsOn test  // 테스트 후 리포트 생성
+    reports {
+        xml.required = true  // XML 리포트 생성 (SonarQube 등과 통합 시 필요)
+        html.required = true  // HTML 리포트 생성
+        csv.required = false  // CSV 리포트는 선택사항
+    }
+    
+    // 코드 커버리지 측정에서 제외할 클래스들
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                "**/config/**",
+                "**/dto/**",
+                "**/entity/**",
+                "**/AutocoinSpringApiApplication.class",
+                "**/exception/**",
+                "**/repository/**"  // 필요시 제외 대상 조정
+            ])
+        }))
+    }
+}
+
+// JaCoCo 테스트 커버리지 검증 태스크
+jacocoTestCoverageVerification {
+    dependsOn jacocoTestReport  // 리포트 생성 후 검증
+    violationRules {
+        rule {
+            element = 'CLASS'
+            // 최소 커버리지 기준 설정
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.5  // 라인 커버리지 50% 이상
+            }
+            limit {
+                counter = 'BRANCH'
+                value = 'COVEREDRATIO'
+                minimum = 0.5  // 분기 커버리지 50% 이상
+            }
+            // 커버리지 검증에서 제외할 클래스들
+            excludes = [
+                '*.config.*',
+                '*.dto.*',
+                '*.entity.*',
+                '*.exception.*',
+                '*.AutocoinSpringApiApplication'
+            ]
+        }
+    }
+}
+
+// 테스트 태스크 설정
 tasks.named('test') {
     useJUnitPlatform()
+    
+    // 테스트 JVM 설정
+    jvmArgs = [
+        '--add-opens=java.base/java.lang=ALL-UNNAMED',
+        '--add-opens=java.base/java.util=ALL-UNNAMED',
+        '--add-opens=java.base/java.time=ALL-UNNAMED'
+    ]
+    
     // 테스트 시 시스템 속성 설정
     systemProperty 'spring.profiles.active', 'test'
+    systemProperty 'spring.test.context.cache.maxSize', '1'
+    
+    // 테스트 실패 시 상세 정보 출력
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showExceptions true
+        showCauses true
+        showStackTraces true
+    }
+    
+    // 테스트 메모리 설정
+    maxHeapSize = "1024m"
+    
+    // 테스트 병렬 실행 비활성화 (안정성 향상)
+    maxParallelForks = 1
+    
+    // JaCoCo 테스트 실행을 위한 설정
+    finalizedBy jacocoTestReport
+}
+
+// 캐시 문제 해결을 위한 컴파일 설정
+compileJava {
+    options.fork = true
+    options.incremental = false
 }
 
 // JAR 빌드 설정
@@ -93,4 +205,12 @@ bootJar {
 // 빌드 시 테스트 실행 여부
 if (project.hasProperty('skipTests')) {
     test.enabled = false
+}
+
+// 빌드 디렉토리 정리
+clean {
+    doFirst {
+        delete "${buildDir}"
+        delete "${rootDir}/out"
+    }
 }

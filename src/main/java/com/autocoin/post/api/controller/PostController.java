@@ -49,11 +49,22 @@ public class PostController {
     public ResponseEntity<PostResponseDto> createPost(
             @Valid @ModelAttribute PostRequestDto requestDto,
             @AuthenticationPrincipal User user) {
-        log.debug("Post request received: title={}, content={}, writer={}, file={}", 
+        log.info("Post request received: title='{}', content='{}', writer='{}', file={}", 
                 requestDto.getTitle(), 
                 requestDto.getContent(), 
                 requestDto.getWriter(), 
                 requestDto.getFile() != null ? requestDto.getFile().getOriginalFilename() : "null");
+        
+        // 요청 값 디버깅
+        if (requestDto.getTitle() == null || requestDto.getTitle().isEmpty()) {
+            log.warn("Title is null or empty in the request");
+        }
+        if (requestDto.getContent() == null || requestDto.getContent().isEmpty()) {
+            log.warn("Content is null or empty in the request");
+        }
+        if (requestDto.getWriter() == null || requestDto.getWriter().isEmpty()) {
+            log.warn("Writer is null or empty in the request");
+        }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(postService.createPost(requestDto, user));
     }
@@ -102,7 +113,7 @@ public class PostController {
     @PostMapping(value = "/noauth", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PostResponseDto> createPostNoAuth(
             @ModelAttribute PostRequestDto requestDto) {
-        log.debug("No auth post request received: title={}, content={}, writer={}, file={}", 
+        log.info("No auth post request received: title='{}', content='{}', writer='{}', file={}", 
                 requestDto.getTitle(), 
                 requestDto.getContent(), 
                 requestDto.getWriter(), 
@@ -116,14 +127,35 @@ public class PostController {
         String content = (requestDto.getContent() != null && !requestDto.getContent().isEmpty())
                 ? requestDto.getContent()
                 : "테스트 내용";
+                
+        String writer = (requestDto.getWriter() != null && !requestDto.getWriter().isEmpty())
+                ? requestDto.getWriter()
+                : "testuser";
         
         // 새 DTO 생성 - 사용자 정보 없이
         PostRequestDto newDto = PostRequestDto.builder()
                 .title(title)
                 .content(content)
-                .writer("testuser")
-                .file(requestDto.getFile())
+                .writer(writer)
+                .file(requestDto.getFile()) // 파일 그대로 전달 - 디버깅 메시지 추가
                 .build();
+        
+        log.info("Processed request: title='{}', content='{}', writer='{}', file={}",
+                newDto.getTitle(),
+                newDto.getContent(),
+                newDto.getWriter(),
+                newDto.getFile() != null ? "present" + newDto.getFile().getOriginalFilename() : "null");
+        
+        // 테스트용으로 파일 내용 확인
+        if (newDto.getFile() != null) {
+            try {
+                log.info("File content type: {}, size: {}", 
+                        newDto.getFile().getContentType(), 
+                        newDto.getFile().getSize());
+            } catch (Exception e) {
+                log.error("Error checking file: {}", e.getMessage());
+            }
+        }
         
         // 사용자 정보는 null로 전달 (선택적 관계)
         return ResponseEntity.status(HttpStatus.CREATED)

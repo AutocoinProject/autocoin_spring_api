@@ -37,6 +37,18 @@ public class UpbitService {
     private final UpbitAuthService upbitAuthService;
     
     /**
+     * API 키 유효성 검증 (공개 메서드)
+     */
+    public boolean validateApiKeys(String accessKey, String secretKey) {
+        try {
+            return upbitAuthService.validateApiKeys(accessKey, secretKey);
+        } catch (Exception e) {
+            log.error("API 키 유효성 검증 실패: {}", e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
      * 업비트 계정 연결
      */
     public UpbitConnectResponseDto connectUpbitAccount(UpbitConnectRequestDto request, Authentication authentication) {

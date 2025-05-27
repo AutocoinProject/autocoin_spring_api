@@ -69,6 +69,15 @@ public class OpenApiConfiguration {
     }
     
     @Bean
+    public GroupedOpenApi allApi() {
+        return GroupedOpenApi.builder()
+                .group("0. 전체 API")
+                .displayName("전체 API")
+                .pathsToMatch("/api/**")
+                .build();
+    }
+    
+    @Bean
     public GroupedOpenApi authenticationApi() {
         return GroupedOpenApi.builder()
                 .group("1. 인증 API")
@@ -101,6 +110,24 @@ public class OpenApiConfiguration {
                 .group("4. 파일 API")
                 .displayName("파일 API")
                 .pathsToMatch("/api/v1/files/**")
+                .build();
+    }
+    
+    @Bean
+    public GroupedOpenApi upbitApi() {
+        return GroupedOpenApi.builder()
+                .group("5. 업비트 API")
+                .displayName("업비트 API")
+                .pathsToMatch("/api/v1/upbit/**")
+                .build();
+    }
+    
+    @Bean
+    public GroupedOpenApi newsApi() {
+        return GroupedOpenApi.builder()
+                .group("6. 뉴스 API")
+                .displayName("뉴스 API")
+                .pathsToMatch("/api/v1/news/**")
                 .build();
     }
 }

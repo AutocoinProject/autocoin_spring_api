@@ -18,10 +18,31 @@ public class AESUtil {
     private static final int TAG_LENGTH = 16; // GCM 태그 길이
     
     /**
+     * 비밀키를 32바이트로 정규화
+     */
+    private SecretKeySpec getSecretKeySpec(String secretKey) {
+        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        
+        // 키를 정확히 32바이트로 맞춤
+        byte[] normalizedKey = new byte[32];
+        if (keyBytes.length >= 32) {
+            System.arraycopy(keyBytes, 0, normalizedKey, 0, 32);
+        } else {
+            System.arraycopy(keyBytes, 0, normalizedKey, 0, keyBytes.length);
+            // 부족한 부분은 0으로 패딩
+            for (int i = keyBytes.length; i < 32; i++) {
+                normalizedKey[i] = 0;
+            }
+        }
+        
+        return new SecretKeySpec(normalizedKey, ALGORITHM);
+    }
+    
+    /**
      * 문자열 암호화
      */
     public String encrypt(String plainText, String secretKey) throws Exception {
-        SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+        SecretKeySpec keySpec = getSecretKeySpec(secretKey);
         
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         
@@ -55,7 +76,7 @@ public class AESUtil {
         System.arraycopy(decodedData, 0, iv, 0, IV_LENGTH);
         System.arraycopy(decodedData, IV_LENGTH, encrypted, 0, encrypted.length);
         
-        SecretKeySpec keySpec = new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+        SecretKeySpec keySpec = getSecretKeySpec(secretKey);
         
         Cipher cipher = Cipher.getInstance(TRANSFORMATION);
         GCMParameterSpec gcmSpec = new GCMParameterSpec(TAG_LENGTH * 8, iv);

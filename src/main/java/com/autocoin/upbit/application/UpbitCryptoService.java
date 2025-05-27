@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class UpbitCryptoService {
     
-    @Value("${app.upbit.encryption.key}")
+    @Value("${app.upbit.encryption.key:autocoin-upbit-encrypt-key-32ch0}")
     private String encryptionKey;
     
     private final AESUtil aesUtil;

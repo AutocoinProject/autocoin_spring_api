@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @ActiveProfiles("test")
+@Sql(scripts = "/cleanup.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class PostRepositoryTest {
 
     @Autowired
@@ -134,13 +136,13 @@ class PostRepositoryTest {
         Post savedPost = postJpaRepository.save(post);
         
         // when
-        savedPost.update("수정된 제목", "수정된 내용", null, null, null);
+        savedPost.update("수정된 제목", "수정된 내용", null, null, null, "수정된 작성자");
         Post updatedPost = postJpaRepository.save(savedPost);
         
         // then
         assertThat(updatedPost.getId()).isEqualTo(savedPost.getId());
         assertThat(updatedPost.getTitle()).isEqualTo("수정된 제목");
         assertThat(updatedPost.getContent()).isEqualTo("수정된 내용");
-        assertThat(updatedPost.getWriter()).isEqualTo("원본 작성자");
+        assertThat(updatedPost.getWriter()).isEqualTo("수정된 작성자");
     }
 }

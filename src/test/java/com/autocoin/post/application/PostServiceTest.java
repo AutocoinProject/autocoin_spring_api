@@ -60,7 +60,7 @@ class PostServiceTest {
         given(postRepository.save(any(Post.class))).willReturn(savedPost);
 
         // when
-        PostResponseDto responseDto = postService.createPost(requestDto);
+        PostResponseDto responseDto = postService.createPost(requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();
@@ -71,7 +71,8 @@ class PostServiceTest {
         assertThat(responseDto.getFileUrl()).isNull();
         
         verify(postRepository, times(1)).save(any(Post.class));
-        verify(s3Uploader, never()).upload(any(MultipartFile.class), anyString());
+        // S3 업로드가 호출되지 않았는지 확인
+        verifyNoInteractions(s3Uploader);
     }
 
     @Test
@@ -108,7 +109,7 @@ class PostServiceTest {
         given(postRepository.save(any(Post.class))).willReturn(savedPost);
 
         // when
-        PostResponseDto responseDto = postService.createPost(requestDto);
+        PostResponseDto responseDto = postService.createPost(requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();
@@ -222,7 +223,7 @@ class PostServiceTest {
         given(postRepository.findById(postId)).willReturn(Optional.of(existingPost));
 
         // when
-        PostResponseDto responseDto = postService.updatePost(postId, requestDto);
+        PostResponseDto responseDto = postService.updatePost(postId, requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();
@@ -232,8 +233,8 @@ class PostServiceTest {
         assertThat(responseDto.getWriter()).isEqualTo(requestDto.getWriter());
         
         verify(postRepository, times(1)).findById(postId);
-        verify(s3Uploader, never()).upload(any(MultipartFile.class), anyString());
-        verify(s3Uploader, never()).delete(anyString());
+        // S3 메서드들이 호출되지 않았는지 확인
+        verifyNoInteractions(s3Uploader);
     }
 
     @Test
@@ -273,7 +274,7 @@ class PostServiceTest {
         doNothing().when(s3Uploader).delete(anyString());
 
         // when
-        PostResponseDto responseDto = postService.updatePost(postId, requestDto);
+        PostResponseDto responseDto = postService.updatePost(postId, requestDto, null);
 
         // then
         assertThat(responseDto).isNotNull();

@@ -17,7 +17,7 @@ import java.util.UUID;
 @Slf4j
 public class UpbitAuthService {
     
-    @Value("${app.upbit.api.url}")
+    @Value("${app.upbit.api.url:https://api.upbit.com}")
     private String upbitApiUrl;
     
     /**

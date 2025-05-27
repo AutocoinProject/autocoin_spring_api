@@ -1,6 +1,6 @@
 package com.autocoin.global.util;
 
-import com.autocoin.global.config.JwtTokenProvider;
+import com.autocoin.global.config.security.JwtTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

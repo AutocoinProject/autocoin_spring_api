@@ -1,0 +1,8 @@
+tasks.register('cleanAll') {
+    dependsOn 'clean'
+    doLast {
+        // Gradle 캐시 파일 삭제
+        delete "${rootDir}/build"
+        delete "${rootDir}/.gradle"
+    }
+}

@@ -9,6 +9,7 @@ import com.autocoin.news.dto.response.NewsResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,41 +35,57 @@ public class NewsService {
     private final NewsRepository newsRepository;
     private final RestTemplate restTemplate;
     
-    @Value("${serp.api.key}")
+    @Value("${serp.api.key:}")
     private String serpApiKey;
     
-    @Scheduled(fixedRate = 3600000) // 1시간마다 실행
+    @Scheduled(cron = "0 0 7 * * ?") // 매일 오전 7시에 실행
+    @ConditionalOnProperty(name = "news.scheduler.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void collectCryptocurrencyNews() {
-        log.info("암호화폐 뉴스 수집 시작");
+        // API 키가 없거나 기본값(테스트 키)인 경우 뉴스 수집 스킵
+        if (serpApiKey == null || serpApiKey.trim().isEmpty() || "test-key".equals(serpApiKey) || 
+            serpApiKey.equals("your-default-serp-api-key")) {
+            log.info("SERP API 키가 설정되지 않아 뉴스 수집을 스킵합니다.");
+            return;
+        }
+        
+        log.info("암호화폐 뉴스 수집 시작 - 매일 오전 7시");
         
         try {
-            // 여러 키워드로 뉴스 수집
-            collectNewsByKeyword("cryptocurrency bitcoin", News.Category.BITCOIN);
-            collectNewsByKeyword("ethereum blockchain", News.Category.ETHEREUM);
-            collectNewsByKeyword("crypto market", News.Category.MARKET);
-            collectNewsByKeyword("blockchain technology", News.Category.BLOCKCHAIN);
+            // 각 카테고리별로 5개씩 뉴스 수집
+            collectNewsByKeyword("cryptocurrency bitcoin", News.Category.BITCOIN, 5);
+            collectNewsByKeyword("ethereum blockchain", News.Category.ETHEREUM, 5);
+            collectNewsByKeyword("crypto market", News.Category.MARKET, 5);
+            collectNewsByKeyword("blockchain technology", News.Category.BLOCKCHAIN, 5);
             
-            log.info("암호화폐 뉴스 수집 완료");
+            log.info("암호화폐 뉴스 수집 완료 - 총 20개 뉴스 수집 시도");
         } catch (Exception e) {
             log.error("뉴스 수집 중 오류 발생", e);
         }
     }
     
-    private void collectNewsByKeyword(String keyword, News.Category category) {
+    @SuppressWarnings("unchecked")
+    private void collectNewsByKeyword(String keyword, News.Category category, int maxCount) {
         try {
             String url = String.format(
-                "https://serpapi.com/search.json?q=%s&tbm=nws&num=10&api_key=%s",
-                keyword.replace(" ", "+"), serpApiKey
+                "https://serpapi.com/search.json?q=%s&tbm=nws&num=%d&api_key=%s",
+                keyword.replace(" ", "+"), maxCount, serpApiKey
             );
             
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
             if (response != null && response.containsKey("news_results")) {
+                @SuppressWarnings("unchecked")
                 List<Map<String, Object>> newsResults = (List<Map<String, Object>>) response.get("news_results");
                 
                 int newNewsCount = 0;
+                int processedCount = 0;
+                
                 for (Map<String, Object> newsItem : newsResults) {
+                    if (processedCount >= maxCount) {
+                        break; // 최대 개수 제한
+                    }
+                    
                     String newsUrl = (String) newsItem.get("link");
                     
                     if (newsUrl != null && !newsRepository.existsByUrl(newsUrl)) {
@@ -87,8 +104,9 @@ public class NewsService {
                         newNewsCount++;
                         log.debug("새로운 뉴스 저장: {}", news.getTitle());
                     }
+                    processedCount++;
                 }
-                log.info("키워드 '{}': 새로운 뉴스 {}개 수집", keyword, newNewsCount);
+                log.info("키워드 '{}': 새로운 뉴스 {}개 수집 (최대 {}개 제한)", keyword, newNewsCount, maxCount);
             }
         } catch (Exception e) {
             log.error("키워드 '{}' 뉴스 수집 중 오류 발생: {}", keyword, e.getMessage());
@@ -149,6 +167,7 @@ public class NewsService {
     }
     
     @Scheduled(cron = "0 0 15 * * ?") // 매일 오후 3시
+    @ConditionalOnProperty(name = "news.scheduler.enabled", havingValue = "true", matchIfMissing = true)
     @Transactional
     public void cleanupOldNews() {
         log.info("오래된 뉴스 정리 시작");
