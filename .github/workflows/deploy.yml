@@ -253,26 +253,70 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
           script: |
+            echo "🔍 Checking system information..."
+            
+            # Check OS type
+            if [ -f /etc/os-release ]; then
+              echo "OS Information:"
+              cat /etc/os-release
+            fi
+            
+            echo "Kernel: $(uname -a)"
+            echo "Distribution: $(lsb_release -d 2>/dev/null || echo 'Unknown')"
+            
             echo "🔍 Checking Docker availability..."
             
             # Check if Docker is available
             if ! command -v docker &> /dev/null; then
-              echo "❌ Docker not found! Installing..."
-              sudo apt-get update -y
-              sudo apt-get install -y docker.io
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
-              echo "✅ Docker installed"
+              echo "❌ Docker not found! Installing based on OS..."
+            
+              # Detect OS and install Docker accordingly
+              if command -v yum &> /dev/null; then
+                # Amazon Linux / CentOS / RHEL
+                echo "📦 Installing Docker on Amazon Linux/CentOS..."
+                sudo yum update -y
+                sudo yum install -y docker
+                sudo service docker start
+                sudo chkconfig docker on
+                sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
+            
+              elif command -v apt-get &> /dev/null; then
+                # Ubuntu / Debian
+                echo "📦 Installing Docker on Ubuntu/Debian..."
+                sudo apt-get update -y
+                sudo apt-get install -y docker.io
+                sudo systemctl start docker
+                sudo systemctl enable docker
+                sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
+            
+              elif command -v dnf &> /dev/null; then
+                # Fedora
+                echo "📦 Installing Docker on Fedora..."
+                sudo dnf update -y
+                sudo dnf install -y docker
+                sudo systemctl start docker
+                sudo systemctl enable docker
+                sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
+            
+              else
+                echo "❌ Unsupported OS for automatic Docker installation"
+                echo "Please install Docker manually or use a supported OS"
+                exit 1
+              fi
+            
+              echo "✅ Docker installation completed"
             else
-              echo "✅ Docker available"
+              echo "✅ Docker already available"
             fi
+            
+            # Verify Docker installation
+            sudo docker --version || echo "Docker version check failed"
             
             # Use sudo for Docker commands (safer)
             DOCKER_CMD="sudo docker"
             
             echo "⏳ Waiting for application startup..."
-            sleep 30  # 일단 30초로 줄여보기
+            sleep 30
             
             echo "📊 Container status:"
             $DOCKER_CMD ps -a
@@ -302,17 +346,17 @@ jobs:
             $DOCKER_CMD logs --tail 30 autocoin-api
             
             echo "🔍 Checking port status:"
-            netstat -tuln | grep :8080 || echo "Port 8080 not listening yet"
+            netstat -tuln | grep :8080 || ss -tuln | grep :8080 || echo "Port 8080 not listening yet"
             
             echo "🏥 Health check with extended retries..."
-            for i in {1..10}; do  # 10번 시도로 증가
+            for i in {1..10}; do
               echo "Attempt $i/10..."
             
-              # First check if port is listening
-              if netstat -tuln | grep -q :8080; then
+              # Check if port is listening (try both netstat and ss)
+              if netstat -tuln 2>/dev/null | grep -q :8080 || ss -tuln 2>/dev/null | grep -q :8080; then
                 echo "✅ Port 8080 is listening"
             
-                # Now try health check
+                # Try health check
                 if curl -f http://localhost:8080/actuator/health; then
                   echo "✅ Health check passed!"
                   break
@@ -333,7 +377,7 @@ jobs:
                 $DOCKER_CMD ps -a | grep autocoin-api
             
                 echo "🔍 Final port check:"
-                netstat -tuln | grep :8080 || echo "Port 8080 still not listening"
+                netstat -tuln 2>/dev/null | grep :8080 || ss -tuln 2>/dev/null | grep :8080 || echo "Port 8080 still not listening"
             
                 echo "🔍 Process check:"
                 ps aux | grep java || echo "No Java processes found"
@@ -341,7 +385,7 @@ jobs:
                 exit 1
               else
                 echo "⏳ Waiting 15 seconds..."
-                sleep 15  # 더 긴 대기 시간
+                sleep 15
               fi
             done
             
