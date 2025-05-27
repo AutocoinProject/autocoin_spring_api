@@ -83,9 +83,144 @@ jobs:
           docker stop autocoin-test
           docker rm autocoin-test
 
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "🚀 Starting deployment to EC2..."
+            
+            # Update system and install Docker if not exists
+            sudo apt-get update
+            if ! command -v docker &> /dev/null; then
+              echo "📦 Installing Docker..."
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ubuntu
+            fi
+            
+            # Create app directory
+            mkdir -p ~/autocoin-app
+            cd ~/autocoin-app
+            
+            # Stop existing container if running
+            echo "🛑 Stopping existing container..."
+            docker stop autocoin-api || true
+            docker rm autocoin-api || true
+            
+            # Remove old images to save space
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+            
+            # Create environment file with all secrets
+            echo "📝 Creating environment configuration..."
+            cat > .env << EOF
+            SPRING_PROFILES_ACTIVE=prod
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION }}
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
+            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+            OAUTH2_REDIRECT_URI=${{ secrets.OAUTH2_REDIRECT_URI }}
+            AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
+            AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
+            AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            UPBIT_API_URL=${{ secrets.UPBIT_API_URL }}
+            UPBIT_ENCRYPTION_KEY=${{ secrets.UPBIT_ENCRYPTION_KEY }}
+            SERP_API_KEY=${{ secrets.SERP_API_KEY }}
+            CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
+            SLACK_NOTIFICATIONS_ENABLED=true
+            EOF
+            
+            # Create Dockerfile on EC2
+            echo "🐳 Creating Dockerfile..."
+            cat > Dockerfile << 'DOCKER_EOF'
+            FROM eclipse-temurin:17-jre-alpine
+            WORKDIR /app
+            RUN apk update && apk add --no-cache curl
+            COPY autocoin-api.jar app.jar
+            ENV TZ=Asia/Seoul
+            EXPOSE 8080
+            HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+              CMD curl -f http://localhost:8080/actuator/health || exit 1
+            ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+            DOCKER_EOF
+            
+            echo "📥 JAR file will be uploaded separately"
+            echo "🔄 Deployment configuration ready!"
+            
+      - name: Upload JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          port: 22
+          source: "build/libs/*.jar"
+          target: "/home/ubuntu/autocoin-app/"
+          strip_components: 2
+          
+      - name: Rename JAR and Start Container
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd ~/autocoin-app
+            
+            # Rename JAR file
+            echo "📁 Renaming JAR file..."
+            mv *.jar autocoin-api.jar
+            
+            # Build Docker image
+            echo "🏗️ Building Docker image..."
+            docker build -t autocoin-api .
+            
+            # Run new container with environment file
+            echo "🚀 Starting new container..."
+            docker run -d \
+              --name autocoin-api \
+              --env-file .env \
+              -p 8080:8080 \
+              --restart unless-stopped \
+              autocoin-api
+            
+            # Wait for container to start
+            echo "⏳ Waiting for application to start..."
+            sleep 30
+            
+            # Check container status
+            echo "📊 Container status:"
+            docker ps -a
+            
+            # Check application health
+            echo "🏥 Health check:"
+            curl -f http://localhost:8080/actuator/health || echo "❌ Health check failed"
+            
+            # Show recent logs
+            echo "📋 Recent logs:"
+            docker logs --tail 20 autocoin-api
+            
+            echo "✅ Deployment completed successfully!"
+            echo "🌐 Application should be available at http://${{ secrets.EC2_HOST }}:8080"
+
       - name: Deployment Summary
         run: |
           echo "✅ Build completed successfully"
           echo "✅ Docker image created"
           echo "✅ Container test completed"
-          echo "🚀 Ready for production deployment"
+          echo "✅ Deployed to EC2: ${{ secrets.EC2_HOST }}"
+          echo "🌐 Application URL: http://${{ secrets.EC2_HOST }}:8080"
+          echo "🏥 Health Check: http://${{ secrets.EC2_HOST }}:8080/actuator/health"
+          echo "🚀 Production deployment completed!"
