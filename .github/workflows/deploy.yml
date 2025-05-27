@@ -120,15 +120,32 @@ jobs:
           script: |
             echo "🚀 Starting deployment to EC2..."
             
-            # Update system and install Docker if not exists
+            # Update system packages
             sudo apt-get update
+            
+            # Install Docker if not exists
             if ! command -v docker &> /dev/null; then
               echo "📦 Installing Docker..."
-              sudo apt-get install -y docker.io
+              sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+              echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+            
+              # Start Docker service
               sudo systemctl start docker
               sudo systemctl enable docker
-              sudo usermod -aG docker ubuntu
+            
+              # Add current user to docker group
+              sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
+            
+              echo "✅ Docker installed successfully"
+            else
+              echo "✅ Docker is already installed"
             fi
+            
+            # Verify Docker installation
+            sudo docker --version
             
             # Create app directory
             mkdir -p ~/autocoin-app
@@ -136,12 +153,12 @@ jobs:
             
             # Stop existing container if running
             echo "🛑 Stopping existing container..."
-            docker stop autocoin-api || true
-            docker rm autocoin-api || true
+            sudo docker stop autocoin-api || true
+            sudo docker rm autocoin-api || true
             
             # Remove old images to save space
             echo "🧹 Cleaning up old images..."
-            docker image prune -f
+            sudo docker image prune -f
             
             # Create environment file with all secrets
             echo "📝 Creating environment configuration..."
@@ -262,11 +279,11 @@ jobs:
             
             # Build Docker image
             echo "🏗️ Building Docker image..."
-            docker build -t autocoin-api .
+            sudo docker build -t autocoin-api .
             
             # Run new container with environment file
             echo "🚀 Starting new container..."
-            docker run -d \
+            sudo docker run -d \
               --name autocoin-api \
               --env-file .env \
               -p 8080:8080 \
@@ -294,7 +311,7 @@ jobs:
             
             # Check container status
             echo "📊 Container status:"
-            docker ps -a
+            sudo docker ps -a
             
             # Check application health
             echo "🏥 Health check:"
@@ -303,13 +320,13 @@ jobs:
             else
               echo "❌ Health check failed!"
               echo "📋 Container logs:"
-              docker logs --tail 50 autocoin-api
+              sudo docker logs --tail 50 autocoin-api
               exit 1
             fi
             
             # Show recent logs
             echo "📋 Recent logs:"
-            docker logs --tail 20 autocoin-api
+            sudo docker logs --tail 20 autocoin-api
             
             echo "✅ Deployment completed successfully!"
             echo "🌐 Application is available at http://${{ secrets.EC2_HOST }}:8080"
