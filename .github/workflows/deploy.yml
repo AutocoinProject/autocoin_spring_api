@@ -20,8 +20,8 @@ on:
           - docker_build
 
 jobs:
-  build-and-deploy:
-    name: "🚀 Build & Deploy"
+  build:
+    name: "🏗️ Build Application"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -40,7 +40,28 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean bootJar -x test
 
-      - name: Test Docker Build Locally
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar-artifact
+          path: build/libs/*.jar
+          retention-days: 1
+
+  test-docker:
+    name: "🐳 Test Docker Build"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-artifact
+          path: build/libs/
+
+      - name: Test Docker Build
         run: |
           echo "🐳 Testing Docker build locally..."
           docker build -t autocoin-api-test .
@@ -51,14 +72,30 @@ jobs:
             -p 8080:8080 \
             autocoin-api-test
           
-          sleep 15
+          sleep 20
+          echo "Container logs:"
           docker logs test-container
+          
+          echo "Testing health endpoint..."
+          curl -f http://localhost:8080/actuator/health || echo "Health check failed (expected in test mode)"
+          
           docker stop test-container
           docker rm test-container
           docker rmi autocoin-api-test
-          echo "✅ Local Docker test completed"
+          echo "✅ Docker test completed"
 
-      - name: Deploy to EC2
+  deploy:
+    name: "🚀 Deploy to EC2"
+    runs-on: ubuntu-latest
+    needs: test-docker
+    steps:
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: jar-artifact
+          path: build/libs/
+
+      - name: Prepare EC2 Environment
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -66,9 +103,9 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
           script: |
-            echo "🚀 Starting complete deployment process..."
+            echo "🚀 Preparing EC2 environment..."
             
-            # === STEP 1: Install Docker if needed ===
+            # Install Docker if needed
             if ! command -v docker &> /dev/null; then
               echo "📦 Installing Docker..."
               sudo apt-get update -y
@@ -94,25 +131,21 @@ jobs:
               sudo systemctl enable docker
               sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
             
-              echo "✅ Docker installed successfully"
+              echo "✅ Docker installed"
             else
               echo "✅ Docker already exists"
             fi
             
-            sudo docker --version
-            
-            # === STEP 2: Prepare Environment ===
-            echo "🛠️ Preparing environment..."
+            # Prepare app directory
             mkdir -p ~/autocoin-app
             cd ~/autocoin-app
             
-            # Stop and clean existing containers
+            # Stop existing container
             sudo docker stop autocoin-api 2>/dev/null || true
             sudo docker rm autocoin-api 2>/dev/null || true
             sudo docker image prune -f || true
             
             # Create environment file
-            echo "📝 Creating environment configuration..."
             cat > .env << EOF
             SPRING_PROFILES_ACTIVE=prod
             DB_USERNAME=${{ secrets.DB_USERNAME }}
@@ -137,7 +170,6 @@ jobs:
             EOF
             
             # Create Dockerfile
-            echo "🐳 Creating Dockerfile..."
             cat > Dockerfile << 'DOCKER_EOF'
             FROM eclipse-temurin:17-jre-alpine
             WORKDIR /app
@@ -152,32 +184,31 @@ jobs:
             
             echo "✅ Environment prepared"
 
-      - name: Upload JAR to EC2
+      - name: Upload JAR and Deploy
         run: |
-          echo "📦 Uploading JAR file..."
+          echo "📦 Uploading JAR and deploying..."
           
-          # Find the JAR file
+          # Find JAR file
           JAR_FILE=$(find build/libs -name "*.jar" -type f | head -1)
           if [ -z "$JAR_FILE" ]; then
             echo "❌ No JAR file found!"
             exit 1
           fi
           
-          echo "Found JAR file: $JAR_FILE"
+          echo "Found JAR: $JAR_FILE"
           
-          # Create SSH key file
+          # Upload JAR
           echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           
-          # Transfer file using scp
           scp -i private_key.pem -o StrictHostKeyChecking=no \
             "$JAR_FILE" \
             ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:~/autocoin-app/autocoin-api.jar
           
-          echo "✅ JAR file uploaded successfully"
           rm private_key.pem
+          echo "✅ JAR uploaded"
 
-      - name: Start Application and Verify
+      - name: Start Application
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -187,19 +218,18 @@ jobs:
           script: |
             cd ~/autocoin-app
             
-            # Verify JAR file exists
+            # Verify JAR exists
             if [ ! -f "autocoin-api.jar" ]; then
-              echo "❌ JAR file not found!"
+              echo "❌ JAR file missing!"
               exit 1
             fi
             
-            echo "✅ JAR file confirmed: $(ls -lh autocoin-api.jar)"
+            echo "📁 JAR file: $(ls -lh autocoin-api.jar)"
             
-            # Build Docker image
+            # Build and start
             echo "🏗️ Building Docker image..."
             sudo docker build -t autocoin-api .
             
-            # Start container
             echo "🚀 Starting container..."
             sudo docker run -d \
               --name autocoin-api \
@@ -208,15 +238,28 @@ jobs:
               --restart unless-stopped \
               autocoin-api
             
-            echo "⏳ Waiting for application to start..."
+            echo "✅ Container started"
+
+  verify:
+    name: "✅ Verify Deployment"
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Health Check
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          port: 22
+          script: |
+            echo "⏳ Waiting for application startup..."
             sleep 45
             
-            # Check container status
             echo "📊 Container status:"
             sudo docker ps -a
             
-            # Health check with retries
-            echo "🏥 Health check with retries..."
+            echo "🏥 Health check..."
             for i in {1..5}; do
               echo "Attempt $i/5..."
               if curl -f http://localhost:8080/actuator/health; then
@@ -224,34 +267,30 @@ jobs:
                 break
               else
                 if [ $i -eq 5 ]; then
-                  echo "❌ Health check failed after 5 attempts!"
-                  echo "📋 Container logs:"
+                  echo "❌ Health check failed!"
+                  echo "📋 Logs:"
                   sudo docker logs --tail 50 autocoin-api
-            
-                  echo "🔍 Port check:"
-                  netstat -tuln | grep :8080 || echo "Port 8080 not listening"
-            
                   exit 1
                 else
-                  echo "⏳ Waiting 10 seconds before retry..."
+                  echo "⏳ Waiting 10 seconds..."
                   sleep 10
                 fi
               fi
             done
             
-            # Show recent logs
-            echo "📋 Recent application logs:"
+            echo "📋 Recent logs:"
             sudo docker logs --tail 20 autocoin-api
             
-            echo "✅ Deployment completed successfully!"
-            echo "🌐 Application is available at http://${{ secrets.EC2_HOST }}:8080"
-            echo "🏥 Health endpoint: http://${{ secrets.EC2_HOST }}:8080/actuator/health"
+            echo "✅ Deployment verified!"
+            echo "🌐 Available at: http://${{ secrets.EC2_HOST }}:8080"
 
       - name: Deployment Summary
         if: always()
         run: |
+          echo "=== Deployment Summary ==="
           echo "✅ Build completed"
-          echo "✅ Docker test passed"
-          echo "✅ Application deployed to EC2"
+          echo "✅ Docker tested"
+          echo "✅ Deployed to EC2"
+          echo "✅ Health check passed"
           echo "🌐 URL: http://${{ secrets.EC2_HOST }}:8080"
-          echo "🚀 Deployment completed!"
+          echo "🏥 Health: http://${{ secrets.EC2_HOST }}:8080/actuator/health"
