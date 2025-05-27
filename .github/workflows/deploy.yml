@@ -20,8 +20,8 @@ on:
           - docker_build
 
 jobs:
-  build:
-    name: "🏗️ Build Application"
+  build-and-deploy:
+    name: "🚀 Build & Deploy"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -40,77 +40,25 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean bootJar -x test
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: jar-artifact
-          path: build/libs/*.jar
-          retention-days: 1
-
-  docker-build:
-    name: "🐳 Build & Test Docker"
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jar-artifact
-          path: build/libs/
-
-      - name: Build Docker Image
-        run: docker build -t autocoin-api .
-
-      - name: Test Docker Container
+      - name: Test Docker Build Locally
         run: |
-          docker run -d --name autocoin-test \
-            -e SPRING_PROFILES_ACTIVE=prod \
-            -e DB_USERNAME="${{ secrets.DB_USERNAME }}" \
-            -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-            -e JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
-            -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
-            -e KAKAO_CLIENT_ID="${{ secrets.KAKAO_CLIENT_ID }}" \
-            -e KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}" \
-            -e OAUTH2_REDIRECT_URI="${{ secrets.OAUTH2_REDIRECT_URI }}" \
-            -e AWS_ACCESS_KEY="${{ secrets.AWS_ACCESS_KEY }}" \
-            -e AWS_SECRET_KEY="${{ secrets.AWS_SECRET_KEY }}" \
-            -e AWS_S3_BUCKET="${{ secrets.AWS_S3_BUCKET }}" \
-            -e AWS_REGION="${{ secrets.AWS_REGION }}" \
-            -e UPBIT_API_URL="${{ secrets.UPBIT_API_URL }}" \
-            -e UPBIT_ENCRYPTION_KEY="${{ secrets.UPBIT_ENCRYPTION_KEY }}" \
-            -e SERP_API_KEY="${{ secrets.SERP_API_KEY }}" \
-            -e CORS_ALLOWED_ORIGINS="${{ secrets.CORS_ALLOWED_ORIGINS }}" \
-            -e SLACK_NOTIFICATIONS_ENABLED=false \
+          echo "🐳 Testing Docker build locally..."
+          docker build -t autocoin-api-test .
+          
+          echo "🧪 Quick container test..."
+          docker run -d --name test-container \
+            -e SPRING_PROFILES_ACTIVE=test \
             -p 8080:8080 \
-            autocoin-api
+            autocoin-api-test
           
-          echo "Waiting for container to start..."
-          sleep 30
-          
-          echo "Container status:"
-          docker ps -a
-          
-          echo "Container logs:"
-          docker logs autocoin-test
-          
-          echo "Testing health endpoint..."
-          curl -f http://localhost:8080/actuator/health || echo "Health check failed"
-          
-          docker stop autocoin-test
-          docker rm autocoin-test
+          sleep 15
+          docker logs test-container
+          docker stop test-container
+          docker rm test-container
+          docker rmi autocoin-api-test
+          echo "✅ Local Docker test completed"
 
-  prepare-deployment:
-    name: "🛠️ Prepare EC2 Environment"
-    runs-on: ubuntu-latest
-    needs: docker-build
-    steps:
-      - name: Deploy to EC2 - Environment Setup
+      - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -118,63 +66,52 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
           script: |
-            echo "🚀 Starting deployment to EC2..."
+            echo "🚀 Starting complete deployment process..."
             
-            # Update system packages
-            sudo apt-get update -y
+            # === STEP 1: Install Docker if needed ===
+            if ! command -v docker &> /dev/null; then
+              echo "📦 Installing Docker..."
+              sudo apt-get update -y
+              sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
             
-            # Remove any existing Docker installations
-            sudo apt-get remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
+              sudo apt-get install -y \
+                apt-transport-https \
+                ca-certificates \
+                curl \
+                gnupg \
+                lsb-release
             
-            # Install required packages
-            sudo apt-get install -y \
-              apt-transport-https \
-              ca-certificates \
-              curl \
-              gnupg \
-              lsb-release
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
             
-            # Add Docker's official GPG key
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+              echo \
+                "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+                $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
             
-            # Add Docker repository
-            echo \
-              "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-              $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update -y
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
             
-            # Update package database with Docker packages
-            sudo apt-get update -y
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
             
-            # Install Docker Engine
-            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+              echo "✅ Docker installed successfully"
+            else
+              echo "✅ Docker already exists"
+            fi
             
-            # Start and enable Docker service
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            
-            # Add current user to docker group
-            sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
-            
-            # Verify Docker installation
             sudo docker --version
-            sudo docker info
             
-            echo "✅ Docker installed and configured successfully"
-            
-            # Create app directory
+            # === STEP 2: Prepare Environment ===
+            echo "🛠️ Preparing environment..."
             mkdir -p ~/autocoin-app
             cd ~/autocoin-app
             
-            # Stop existing container if running
-            echo "🛑 Stopping existing container..."
+            # Stop and clean existing containers
             sudo docker stop autocoin-api 2>/dev/null || true
             sudo docker rm autocoin-api 2>/dev/null || true
-            
-            # Remove old images to save space
-            echo "🧹 Cleaning up old images..."
             sudo docker image prune -f || true
             
-            # Create environment file with all secrets
+            # Create environment file
             echo "📝 Creating environment configuration..."
             cat > .env << EOF
             SPRING_PROFILES_ACTIVE=prod
@@ -199,7 +136,7 @@ jobs:
             SLACK_NOTIFICATIONS_ENABLED=true
             EOF
             
-            # Create Dockerfile on EC2
+            # Create Dockerfile
             echo "🐳 Creating Dockerfile..."
             cat > Dockerfile << 'DOCKER_EOF'
             FROM eclipse-temurin:17-jre-alpine
@@ -213,46 +150,19 @@ jobs:
             ENTRYPOINT ["java", "-jar", "/app/app.jar"]
             DOCKER_EOF
             
-            echo "🔄 Deployment environment ready!"
+            echo "✅ Environment prepared"
 
-  upload-and-deploy:
-    name: "📦 Upload JAR & Deploy"
-    runs-on: ubuntu-latest
-    needs: prepare-deployment
-    steps:
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jar-artifact
-          path: build/libs/
-
-      - name: List downloaded files
+      - name: Upload JAR to EC2
         run: |
-          echo "Current directory contents:"
-          ls -la
-          echo "Build/libs directory contents:"
-          ls -la build/libs/
-          echo "Finding JAR files:"
-          find . -name "*.jar" -type f
-
-      - name: Upload JAR to EC2 using SSH
-        uses: appleboy/ssh-action@v0.1.8
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          port: 22
-          script: |
-            echo "📁 Preparing to receive JAR file..."
-            mkdir -p ~/autocoin-app
-            cd ~/autocoin-app
-            echo "Ready to receive file"
-
-      - name: Transfer JAR file
-        run: |
-          echo "Preparing JAR file for transfer..."
-          cd build/libs
-          JAR_FILE=$(ls *.jar | head -1)
+          echo "📦 Uploading JAR file..."
+          
+          # Find the JAR file
+          JAR_FILE=$(find build/libs -name "*.jar" -type f | head -1)
+          if [ -z "$JAR_FILE" ]; then
+            echo "❌ No JAR file found!"
+            exit 1
+          fi
+          
           echo "Found JAR file: $JAR_FILE"
           
           # Create SSH key file
@@ -264,12 +174,10 @@ jobs:
             "$JAR_FILE" \
             ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:~/autocoin-app/autocoin-api.jar
           
-          echo "✅ JAR file transferred successfully"
-          
-          # Clean up
+          echo "✅ JAR file uploaded successfully"
           rm private_key.pem
 
-      - name: Start Application Container
+      - name: Start Application and Verify
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -279,24 +187,20 @@ jobs:
           script: |
             cd ~/autocoin-app
             
-            # List uploaded files
-            echo "📁 Files in autocoin-app directory:"
-            ls -la
-            
-            # Check if JAR file exists
+            # Verify JAR file exists
             if [ ! -f "autocoin-api.jar" ]; then
-              echo "❌ autocoin-api.jar not found!"
+              echo "❌ JAR file not found!"
               exit 1
             fi
             
-            echo "✅ JAR file found: autocoin-api.jar"
+            echo "✅ JAR file confirmed: $(ls -lh autocoin-api.jar)"
             
             # Build Docker image
             echo "🏗️ Building Docker image..."
             sudo docker build -t autocoin-api .
             
-            # Run new container with environment file
-            echo "🚀 Starting new container..."
+            # Start container
+            echo "🚀 Starting container..."
             sudo docker run -d \
               --name autocoin-api \
               --env-file .env \
@@ -304,50 +208,14 @@ jobs:
               --restart unless-stopped \
               autocoin-api
             
-            echo "✅ Container started successfully!"
-
-  health-check:
-    name: "🏥 Health Check & Verification"
-    runs-on: ubuntu-latest
-    needs: upload-and-deploy
-    steps:
-      - name: Verify Deployment
-        uses: appleboy/ssh-action@v0.1.8
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          port: 22
-          script: |
-            # Wait for container to start
             echo "⏳ Waiting for application to start..."
             sleep 45
             
-            # Check if Docker is available without sudo first
-            echo "🔍 Checking Docker access..."
-            if docker ps &>/dev/null; then
-              DOCKER_CMD="docker"
-              echo "✅ Docker accessible without sudo"
-            else
-              DOCKER_CMD="sudo docker"
-              echo "⚠️ Using sudo for Docker commands"
-            fi
-            
             # Check container status
             echo "📊 Container status:"
-            $DOCKER_CMD ps -a
+            sudo docker ps -a
             
-            # Check if container is running
-            if $DOCKER_CMD ps | grep -q autocoin-api; then
-              echo "✅ Container is running"
-            else
-              echo "❌ Container is not running"
-              echo "📋 Container logs:"
-              $DOCKER_CMD logs autocoin-api 2>/dev/null || echo "No logs available"
-              exit 1
-            fi
-            
-            # Check application health with retries
+            # Health check with retries
             echo "🏥 Health check with retries..."
             for i in {1..5}; do
               echo "Attempt $i/5..."
@@ -358,10 +226,9 @@ jobs:
                 if [ $i -eq 5 ]; then
                   echo "❌ Health check failed after 5 attempts!"
                   echo "📋 Container logs:"
-                  $DOCKER_CMD logs --tail 50 autocoin-api
+                  sudo docker logs --tail 50 autocoin-api
             
-                  # Check if port is listening
-                  echo "🔍 Checking if port 8080 is listening:"
+                  echo "🔍 Port check:"
                   netstat -tuln | grep :8080 || echo "Port 8080 not listening"
             
                   exit 1
@@ -373,24 +240,18 @@ jobs:
             done
             
             # Show recent logs
-            echo "📋 Recent logs:"
-            $DOCKER_CMD logs --tail 20 autocoin-api
+            echo "📋 Recent application logs:"
+            sudo docker logs --tail 20 autocoin-api
             
             echo "✅ Deployment completed successfully!"
             echo "🌐 Application is available at http://${{ secrets.EC2_HOST }}:8080"
+            echo "🏥 Health endpoint: http://${{ secrets.EC2_HOST }}:8080/actuator/health"
 
-  deployment-summary:
-    name: "📋 Deployment Summary"
-    runs-on: ubuntu-latest
-    needs: health-check
-    if: always()
-    steps:
-      - name: Print Deployment Summary
+      - name: Deployment Summary
+        if: always()
         run: |
-          echo "✅ Build completed successfully"
-          echo "✅ Docker image created and tested"
-          echo "✅ Environment prepared on EC2"
-          echo "✅ Application deployed to EC2: ${{ secrets.EC2_HOST }}"
-          echo "🌐 Application URL: http://${{ secrets.EC2_HOST }}:8080"
-          echo "🏥 Health Check: http://${{ secrets.EC2_HOST }}:8080/actuator/health"
-          echo "🚀 Production deployment completed!"
+          echo "✅ Build completed"
+          echo "✅ Docker test passed"
+          echo "✅ Application deployed to EC2"
+          echo "🌐 URL: http://${{ secrets.EC2_HOST }}:8080"
+          echo "🚀 Deployment completed!"
