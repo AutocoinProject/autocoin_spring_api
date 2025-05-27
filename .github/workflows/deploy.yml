@@ -300,21 +300,47 @@ jobs:
             echo "🔍 Quick port check:"
             ss -tuln | grep :8080 && echo "✅ Port 8080 listening" || echo "❌ Port not listening"
             
-            echo "🏥 Quick health check (3 attempts only)..."
-            for i in {1..3}; do
-              echo "Attempt $i/3..."
-              if curl -f --max-time 10 http://localhost:8080/actuator/health; then
+            echo "🏥 Quick health check (waiting for startup)..."
+            
+            # Wait for Spring Boot to fully start
+            echo "⏳ Waiting for Spring Boot startup..."
+            sleep 60  # Spring Boot 시작을 위해 충분한 시간 대기
+            
+            echo "📊 Container status after waiting:"
+            $DOCKER_CMD ps -a
+            
+            echo "📋 Latest container logs:"
+            $DOCKER_CMD logs --tail 10 autocoin-api
+            
+            for i in {1..5}; do
+              echo "Health check attempt $i/5..."
+            
+              # Check container health status first
+              HEALTH_STATUS=$($DOCKER_CMD inspect --format='{{.State.Health.Status}}' autocoin-api 2>/dev/null || echo "none")
+              echo "Docker health status: $HEALTH_STATUS"
+            
+              if curl -f --max-time 15 --connect-timeout 10 http://localhost:8080/actuator/health; then
                 echo "✅ Health check passed!"
                 echo "🌐 Available at: http://${{ secrets.EC2_HOST }}:8080"
                 exit 0
               else
-                echo "❌ Health check failed"
-                if [ $i -eq 3 ]; then
-                  echo "Final logs:"
-                  $DOCKER_CMD logs --tail 30 autocoin-api
+                echo "❌ Health check failed (attempt $i)"
+            
+                if [ $i -eq 5 ]; then
+                  echo "📋 Final detailed logs:"
+                  $DOCKER_CMD logs --tail 100 autocoin-api
+            
+                  echo "🔍 Final container inspection:"
+                  $DOCKER_CMD inspect autocoin-api | grep -A 10 -B 10 "Health\|Status\|ExitCode"
+            
+                  echo "🔍 Testing simple HTTP connection:"
+                  curl -v --max-time 5 http://localhost:8080/ || echo "Basic HTTP connection failed"
+            
                   exit 1
+                else
+                  echo "⏳ Waiting 20 seconds before retry..."
+                  sleep 20
                 fi
-                sleep 10
               fi
             done
 
