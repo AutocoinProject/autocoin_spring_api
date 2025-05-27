@@ -204,17 +204,39 @@ jobs:
           echo "Finding JAR files:"
           find . -name "*.jar" -type f
 
-      - name: Upload JAR to EC2
-        uses: appleboy/scp-action@v0.1.7
+      - name: Upload JAR to EC2 using SSH
+        uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
-          source: "build/libs/*.jar"
-          target: "/home/ubuntu/autocoin-app/"
-          strip_components: 2
-          overwrite: true
+          script: |
+            echo "📁 Preparing to receive JAR file..."
+            mkdir -p ~/autocoin-app
+            cd ~/autocoin-app
+            echo "Ready to receive file"
+
+      - name: Transfer JAR file
+        run: |
+          echo "Preparing JAR file for transfer..."
+          cd build/libs
+          JAR_FILE=$(ls *.jar | head -1)
+          echo "Found JAR file: $JAR_FILE"
+          
+          # Create SSH key file
+          echo "${{ secrets.EC2_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          
+          # Transfer file using scp
+          scp -i private_key.pem -o StrictHostKeyChecking=no \
+            "$JAR_FILE" \
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:~/autocoin-app/autocoin-api.jar
+          
+          echo "✅ JAR file transferred successfully"
+          
+          # Clean up
+          rm private_key.pem
 
       - name: Start Application Container
         uses: appleboy/ssh-action@v0.1.8
@@ -230,17 +252,13 @@ jobs:
             echo "📁 Files in autocoin-app directory:"
             ls -la
             
-            # Find and rename JAR file
-            echo "📁 Finding JAR file..."
-            JAR_FILE=$(find . -name "*.jar" -type f | head -1)
-            if [ -z "$JAR_FILE" ]; then
-              echo "❌ No JAR file found!"
+            # Check if JAR file exists
+            if [ ! -f "autocoin-api.jar" ]; then
+              echo "❌ autocoin-api.jar not found!"
               exit 1
             fi
             
-            echo "Found JAR file: $JAR_FILE"
-            mv "$JAR_FILE" autocoin-api.jar
-            echo "✅ JAR file renamed to autocoin-api.jar"
+            echo "✅ JAR file found: autocoin-api.jar"
             
             # Build Docker image
             echo "🏗️ Building Docker image..."
