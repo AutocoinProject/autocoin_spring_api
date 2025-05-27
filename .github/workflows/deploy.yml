@@ -252,148 +252,71 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
+          timeout: 300s  # 5분으로 제한
           script: |
-            echo "🔍 Checking system information..."
+            echo "🔍 Quick Docker check..."
             
-            # Check OS type
-            if [ -f /etc/os-release ]; then
-              echo "OS Information:"
-              cat /etc/os-release
-            fi
-            
-            echo "Kernel: $(uname -a)"
-            echo "Distribution: $(lsb_release -d 2>/dev/null || echo 'Unknown')"
-            
-            echo "🔍 Checking Docker availability..."
-            
-            # Check if Docker is available
+            # Skip OS detection since we know it's Amazon Linux
             if ! command -v docker &> /dev/null; then
-              echo "❌ Docker not found! Installing based on OS..."
-            
-              # Detect OS and install Docker accordingly
-              if command -v yum &> /dev/null; then
-                # Amazon Linux / CentOS / RHEL
-                echo "📦 Installing Docker on Amazon Linux/CentOS..."
-                sudo yum update -y
-                sudo yum install -y docker
-                sudo service docker start
-                sudo chkconfig docker on
-                sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
-            
-              elif command -v apt-get &> /dev/null; then
-                # Ubuntu / Debian
-                echo "📦 Installing Docker on Ubuntu/Debian..."
-                sudo apt-get update -y
-                sudo apt-get install -y docker.io
-                sudo systemctl start docker
-                sudo systemctl enable docker
-                sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
-            
-              elif command -v dnf &> /dev/null; then
-                # Fedora
-                echo "📦 Installing Docker on Fedora..."
-                sudo dnf update -y
-                sudo dnf install -y docker
-                sudo systemctl start docker
-                sudo systemctl enable docker
-                sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
-            
-              else
-                echo "❌ Unsupported OS for automatic Docker installation"
-                echo "Please install Docker manually or use a supported OS"
-                exit 1
-              fi
-            
-              echo "✅ Docker installation completed"
+              echo "❌ Docker not found! Installing quickly..."
+              sudo dnf update -y
+              sudo dnf install -y docker
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
+              echo "✅ Docker installed"
             else
-              echo "✅ Docker already available"
+              echo "✅ Docker available"
             fi
             
-            # Verify Docker installation
-            sudo docker --version || echo "Docker version check failed"
-            
-            # Use sudo for Docker commands (safer)
+            # Use sudo for Docker commands
             DOCKER_CMD="sudo docker"
             
-            echo "⏳ Waiting for application startup..."
-            sleep 30
+            echo "📊 Current container status:"
+            $DOCKER_CMD ps -a || echo "Docker ps failed"
             
-            echo "📊 Container status:"
-            $DOCKER_CMD ps -a
+            # Quick check if container exists
+            if $DOCKER_CMD ps -a | grep -q autocoin-api; then
+              echo "✅ Container found"
             
-            # Check if container exists and is running
-            if ! $DOCKER_CMD ps | grep -q autocoin-api; then
-              echo "❌ Container not running!"
-              echo "All containers:"
-              $DOCKER_CMD ps -a
-            
-              echo "📋 Container logs (if exists):"
-              $DOCKER_CMD logs autocoin-api 2>/dev/null || echo "No logs available"
-            
-              echo "🔍 Checking if container exists but stopped:"
-              if $DOCKER_CMD ps -a | grep -q autocoin-api; then
-                echo "Container exists but stopped. Logs:"
-                $DOCKER_CMD logs --tail 100 autocoin-api
+              # Check if running
+              if $DOCKER_CMD ps | grep -q autocoin-api; then
+                echo "✅ Container is running"
+              else
+                echo "❌ Container stopped. Logs:"
+                $DOCKER_CMD logs --tail 50 autocoin-api
+                exit 1
               fi
-            
+            else
+              echo "❌ No container found!"
+              echo "Available containers:"
+              $DOCKER_CMD ps -a
               exit 1
             fi
             
-            echo "✅ Container is running"
-            
-            # Show container logs before health check
-            echo "📋 Current container logs:"
-            $DOCKER_CMD logs --tail 30 autocoin-api
-            
-            echo "🔍 Checking port status:"
-            netstat -tuln | grep :8080 || ss -tuln | grep :8080 || echo "Port 8080 not listening yet"
-            
-            echo "🏥 Health check with extended retries..."
-            for i in {1..10}; do
-              echo "Attempt $i/10..."
-            
-              # Check if port is listening (try both netstat and ss)
-              if netstat -tuln 2>/dev/null | grep -q :8080 || ss -tuln 2>/dev/null | grep -q :8080; then
-                echo "✅ Port 8080 is listening"
-            
-                # Try health check
-                if curl -f http://localhost:8080/actuator/health; then
-                  echo "✅ Health check passed!"
-                  break
-                else
-                  echo "⚠️ Port listening but health check failed"
-                fi
-              else
-                echo "⚠️ Port 8080 not listening yet"
-              fi
-            
-              if [ $i -eq 10 ]; then
-                echo "❌ Health check failed after 10 attempts!"
-            
-                echo "📋 Final container logs:"
-                $DOCKER_CMD logs --tail 100 autocoin-api
-            
-                echo "🔍 Final container status:"
-                $DOCKER_CMD ps -a | grep autocoin-api
-            
-                echo "🔍 Final port check:"
-                netstat -tuln 2>/dev/null | grep :8080 || ss -tuln 2>/dev/null | grep :8080 || echo "Port 8080 still not listening"
-            
-                echo "🔍 Process check:"
-                ps aux | grep java || echo "No Java processes found"
-            
-                exit 1
-              else
-                echo "⏳ Waiting 15 seconds..."
-                sleep 15
-              fi
-            done
-            
-            echo "📋 Final successful logs:"
+            echo "📋 Container logs:"
             $DOCKER_CMD logs --tail 20 autocoin-api
             
-            echo "✅ Deployment verified!"
-            echo "🌐 Available at: http://${{ secrets.EC2_HOST }}:8080"
+            echo "🔍 Quick port check:"
+            ss -tuln | grep :8080 && echo "✅ Port 8080 listening" || echo "❌ Port not listening"
+            
+            echo "🏥 Quick health check (3 attempts only)..."
+            for i in {1..3}; do
+              echo "Attempt $i/3..."
+              if curl -f --max-time 10 http://localhost:8080/actuator/health; then
+                echo "✅ Health check passed!"
+                echo "🌐 Available at: http://${{ secrets.EC2_HOST }}:8080"
+                exit 0
+              else
+                echo "❌ Health check failed"
+                if [ $i -eq 3 ]; then
+                  echo "Final logs:"
+                  $DOCKER_CMD logs --tail 30 autocoin-api
+                  exit 1
+                fi
+                sleep 10
+              fi
+            done
 
       - name: Deployment Summary
         if: always()
