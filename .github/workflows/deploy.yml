@@ -253,11 +253,37 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           port: 22
           script: |
+            echo "🔍 Checking Docker availability..."
+            
+            # Check if Docker is available
+            if ! command -v docker &> /dev/null; then
+              echo "❌ Docker not found! Installing..."
+              sudo apt-get update -y
+              sudo apt-get install -y docker.io
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
+              echo "✅ Docker installed"
+            else
+              echo "✅ Docker available"
+            fi
+            
+            # Use sudo for Docker commands (safer)
+            DOCKER_CMD="sudo docker"
+            
             echo "⏳ Waiting for application startup..."
             sleep 45
             
             echo "📊 Container status:"
-            sudo docker ps -a
+            $DOCKER_CMD ps -a
+            
+            # Check if container exists
+            if ! $DOCKER_CMD ps -a | grep -q autocoin-api; then
+              echo "❌ Container not found!"
+              echo "Available containers:"
+              $DOCKER_CMD ps -a
+              exit 1
+            fi
             
             echo "🏥 Health check..."
             for i in {1..5}; do
@@ -268,8 +294,15 @@ jobs:
               else
                 if [ $i -eq 5 ]; then
                   echo "❌ Health check failed!"
-                  echo "📋 Logs:"
-                  sudo docker logs --tail 50 autocoin-api
+                  echo "📋 Container logs:"
+                  $DOCKER_CMD logs --tail 50 autocoin-api
+            
+                  echo "🔍 Container status:"
+                  $DOCKER_CMD ps -a | grep autocoin-api
+            
+                  echo "🔍 Port check:"
+                  netstat -tuln | grep :8080 || echo "Port 8080 not listening"
+            
                   exit 1
                 else
                   echo "⏳ Waiting 10 seconds..."
@@ -279,7 +312,7 @@ jobs:
             done
             
             echo "📋 Recent logs:"
-            sudo docker logs --tail 20 autocoin-api
+            $DOCKER_CMD logs --tail 20 autocoin-api
             
             echo "✅ Deployment verified!"
             echo "🌐 Available at: http://${{ secrets.EC2_HOST }}:8080"
