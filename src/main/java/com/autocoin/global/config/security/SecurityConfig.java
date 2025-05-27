@@ -93,10 +93,12 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/authorization/**").permitAll()
                         .requestMatchers("/login/oauth2/code/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        // H2 Database Console (개발용)
+                        // H2 Database Console (개발용만)
                         .requestMatchers("/h2-console/**").permitAll()
-                        // Spring Boot Actuator 엔드포인트들 (모니터링)
-                        .requestMatchers("/actuator/**").permitAll()
+                        // Spring Boot Actuator 엔드포인트들 - 보안 강화
+                        .requestMatchers("/actuator/health").permitAll()  // 헬스체크만 공개
+                        .requestMatchers("/actuator/info").permitAll()    // 기본 정보만 공개
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")  // 나머지는 관리자만
                         // 테스트 API (개발용)
                         .requestMatchers("/api/v1/test/**").permitAll()
                         // Slack 테스트 API
