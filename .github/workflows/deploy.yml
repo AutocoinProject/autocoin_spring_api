@@ -272,46 +272,80 @@ jobs:
             DOCKER_CMD="sudo docker"
             
             echo "⏳ Waiting for application startup..."
-            sleep 45
+            sleep 30  # 일단 30초로 줄여보기
             
             echo "📊 Container status:"
             $DOCKER_CMD ps -a
             
-            # Check if container exists
-            if ! $DOCKER_CMD ps -a | grep -q autocoin-api; then
-              echo "❌ Container not found!"
-              echo "Available containers:"
+            # Check if container exists and is running
+            if ! $DOCKER_CMD ps | grep -q autocoin-api; then
+              echo "❌ Container not running!"
+              echo "All containers:"
               $DOCKER_CMD ps -a
+            
+              echo "📋 Container logs (if exists):"
+              $DOCKER_CMD logs autocoin-api 2>/dev/null || echo "No logs available"
+            
+              echo "🔍 Checking if container exists but stopped:"
+              if $DOCKER_CMD ps -a | grep -q autocoin-api; then
+                echo "Container exists but stopped. Logs:"
+                $DOCKER_CMD logs --tail 100 autocoin-api
+              fi
+            
               exit 1
             fi
             
-            echo "🏥 Health check..."
-            for i in {1..5}; do
-              echo "Attempt $i/5..."
-              if curl -f http://localhost:8080/actuator/health; then
-                echo "✅ Health check passed!"
-                break
-              else
-                if [ $i -eq 5 ]; then
-                  echo "❌ Health check failed!"
-                  echo "📋 Container logs:"
-                  $DOCKER_CMD logs --tail 50 autocoin-api
+            echo "✅ Container is running"
             
-                  echo "🔍 Container status:"
-                  $DOCKER_CMD ps -a | grep autocoin-api
+            # Show container logs before health check
+            echo "📋 Current container logs:"
+            $DOCKER_CMD logs --tail 30 autocoin-api
             
-                  echo "🔍 Port check:"
-                  netstat -tuln | grep :8080 || echo "Port 8080 not listening"
+            echo "🔍 Checking port status:"
+            netstat -tuln | grep :8080 || echo "Port 8080 not listening yet"
             
-                  exit 1
+            echo "🏥 Health check with extended retries..."
+            for i in {1..10}; do  # 10번 시도로 증가
+              echo "Attempt $i/10..."
+            
+              # First check if port is listening
+              if netstat -tuln | grep -q :8080; then
+                echo "✅ Port 8080 is listening"
+            
+                # Now try health check
+                if curl -f http://localhost:8080/actuator/health; then
+                  echo "✅ Health check passed!"
+                  break
                 else
-                  echo "⏳ Waiting 10 seconds..."
-                  sleep 10
+                  echo "⚠️ Port listening but health check failed"
                 fi
+              else
+                echo "⚠️ Port 8080 not listening yet"
+              fi
+            
+              if [ $i -eq 10 ]; then
+                echo "❌ Health check failed after 10 attempts!"
+            
+                echo "📋 Final container logs:"
+                $DOCKER_CMD logs --tail 100 autocoin-api
+            
+                echo "🔍 Final container status:"
+                $DOCKER_CMD ps -a | grep autocoin-api
+            
+                echo "🔍 Final port check:"
+                netstat -tuln | grep :8080 || echo "Port 8080 still not listening"
+            
+                echo "🔍 Process check:"
+                ps aux | grep java || echo "No Java processes found"
+            
+                exit 1
+              else
+                echo "⏳ Waiting 15 seconds..."
+                sleep 15  # 더 긴 대기 시간
               fi
             done
             
-            echo "📋 Recent logs:"
+            echo "📋 Final successful logs:"
             $DOCKER_CMD logs --tail 20 autocoin-api
             
             echo "✅ Deployment verified!"
