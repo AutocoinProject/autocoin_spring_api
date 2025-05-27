@@ -85,17 +85,9 @@ jobs:
           docker stop autocoin-test
           docker rm autocoin-test
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: autocoin-api-jar
-          path: build/libs/*.jar
-          retention-days: 7
-
       - name: Deployment Summary
         run: |
           echo "✅ Build completed successfully"
           echo "✅ Docker image created"
           echo "✅ Container test completed"
-          echo "📦 JAR artifact uploaded"
           echo "🚀 Ready for production deployment"
