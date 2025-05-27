@@ -139,13 +139,18 @@ jobs:
               # Add current user to docker group
               sudo usermod -aG docker ${{ secrets.EC2_USERNAME }}
             
+              # Force group membership refresh
+              newgrp docker
+            
               echo "✅ Docker installed successfully"
             else
               echo "✅ Docker is already installed"
             fi
             
-            # Verify Docker installation
+            # Verify Docker installation with sudo
             sudo docker --version
+            echo "Docker service status:"
+            sudo systemctl status docker --no-pager
             
             # Create app directory
             mkdir -p ~/autocoin-app
@@ -153,8 +158,8 @@ jobs:
             
             # Stop existing container if running
             echo "🛑 Stopping existing container..."
-            sudo docker stop autocoin-api || true
-            sudo docker rm autocoin-api || true
+            sudo docker stop autocoin-api 2>/dev/null || true
+            sudo docker rm autocoin-api 2>/dev/null || true
             
             # Remove old images to save space
             echo "🧹 Cleaning up old images..."
@@ -307,26 +312,60 @@ jobs:
           script: |
             # Wait for container to start
             echo "⏳ Waiting for application to start..."
-            sleep 30
+            sleep 45
+            
+            # Check if Docker is available without sudo first
+            echo "🔍 Checking Docker access..."
+            if docker ps &>/dev/null; then
+              DOCKER_CMD="docker"
+              echo "✅ Docker accessible without sudo"
+            else
+              DOCKER_CMD="sudo docker"
+              echo "⚠️ Using sudo for Docker commands"
+            fi
             
             # Check container status
             echo "📊 Container status:"
-            sudo docker ps -a
+            $DOCKER_CMD ps -a
             
-            # Check application health
-            echo "🏥 Health check:"
-            if curl -f http://localhost:8080/actuator/health; then
-              echo "✅ Health check passed!"
+            # Check if container is running
+            if $DOCKER_CMD ps | grep -q autocoin-api; then
+              echo "✅ Container is running"
             else
-              echo "❌ Health check failed!"
+              echo "❌ Container is not running"
               echo "📋 Container logs:"
-              sudo docker logs --tail 50 autocoin-api
+              $DOCKER_CMD logs autocoin-api 2>/dev/null || echo "No logs available"
               exit 1
             fi
             
+            # Check application health with retries
+            echo "🏥 Health check with retries..."
+            for i in {1..5}; do
+              echo "Attempt $i/5..."
+              if curl -f http://localhost:8080/actuator/health; then
+                echo "✅ Health check passed!"
+                break
+              else
+                if [ $i -eq 5 ]; then
+                  echo "❌ Health check failed after 5 attempts!"
+                  echo "📋 Container logs:"
+                  $DOCKER_CMD logs --tail 50 autocoin-api
+            
+                  # Check if port is listening
+                  echo "🔍 Checking if port 8080 is listening:"
+                  netstat -tuln | grep :8080 || echo "Port 8080 not listening"
+            
+                  exit 1
+                else
+                  echo "⏳ Waiting 10 seconds before retry..."
+                  sleep 10
+                fi
+              fi
+            done
+            
             # Show recent logs
             echo "📋 Recent logs:"
-            sudo docker logs --tail 20 autocoin-api
+            $DOCKER_CMD logs --tail 20 autocoin-api
             
             echo "✅ Deployment completed successfully!"
             echo "🌐 Application is available at http://${{ secrets.EC2_HOST }}:8080"
