@@ -1,6 +1,7 @@
 package com.autocoin.global.exception;
 
 import com.autocoin.notification.service.SlackNotificationService;
+import io.sentry.Sentry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException ex) {
         log.error("Custom Exception: {}", ex.getMessage());
         
+        // Sentry에 에러 전송
+        Sentry.captureException(ex);
+        
         ErrorResponse response = ErrorResponse.builder()
                 .status(ex.getErrorCode().getStatus().value())
                 .code(ex.getErrorCode().getCode())
@@ -67,6 +71,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Object> handleGlobalException(Exception ex) {
         log.error("Unhandled Exception: ", ex);
+        
+        // Sentry에 에러 전송
+        Sentry.captureException(ex);
         
         // Slack 알림 전송 (설정된 경우에만)
         if (slackNotificationService != null) {

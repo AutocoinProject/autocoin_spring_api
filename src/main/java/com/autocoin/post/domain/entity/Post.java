@@ -1,15 +1,12 @@
 package com.autocoin.post.domain.entity;
 
+import com.autocoin.global.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 import com.autocoin.user.domain.User;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "posts")
@@ -17,7 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Post {
+public class Post extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,12 +38,6 @@ public class Post {
     private String fileName;
     
     private String fileKey;
-
-    @CreationTimestamp
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
 
     // 수정 메서드
     public void update(String title, String content, String fileUrl, String fileName, String fileKey, String writer) {

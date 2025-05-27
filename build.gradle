@@ -39,9 +39,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-configuration-processor'
     implementation 'org.springframework.boot:spring-boot-starter-aop' // AOP 지원
     
-    // .env 파일 처리를 위한 라이브러리 
-    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
-    
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
@@ -71,6 +68,20 @@ dependencies {
     
     // Development tools
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    
+    // Monitoring & Observability
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+    implementation 'io.micrometer:micrometer-observation'
+    
+    // Sentry for Error Tracking
+    implementation 'io.sentry:sentry-spring-boot-starter-jakarta:7.14.0'
+    implementation 'io.sentry:sentry-logback:7.14.0'
+    
+    // Additional monitoring dependencies
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'net.ttddyy:datasource-proxy:1.8.1'
     
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

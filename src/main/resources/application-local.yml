@@ -1,13 +1,9 @@
-# 로깅 설정
-logging:
-  level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    com.zaxxer.hikari: DEBUG
+# ====================================
+# 로컬 개발환경 설정
+# ====================================
 
 spring:
   datasource:
-    # 로컬 MySQL 설정
     url: jdbc:mysql://localhost:3307/autocoin_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:1234}
@@ -15,26 +11,57 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create  # 개발용 - 초기 생성
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-    show-sql: true
+        use_sql_comments: true
+    show-sql: true  # 개발용 - SQL 로그 출력
 
-cloud:
-  aws:
-    s3:
-      bucket: autocoin-s3-bucket
-    credentials:
-      access-key: ${AWS_ACCESS_KEY:your-aws-access-key}
-      secret-key: ${AWS_SECRET_KEY:your-aws-secret-key}
-    region:
-      static: ap-northeast-2
-    stack:
-      auto: false
+# 로깅 설정 (개발용 - 상세 로그)
+logging:
+  level:
+    com.autocoin: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    io.sentry: OFF  # Sentry 로깅 완전 끄기
 
-# 뉴스 스케줄러 비활성화 (테스트 시)
-news:
-  scheduler:
-    enabled: false
+# Swagger/OpenAPI 설정 (개발용 - 활성화)
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+  packages-to-scan: com.autocoin
+  paths-to-match: /api/**
+
+# 모니터링 설정 (개발용 - 모든 엔드포인트 노출)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,beans,configprops,threaddump,heapdump
+  metrics:
+    web:
+      server:
+        request:
+          autotime:
+            enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.9, 0.95, 0.99
+      slo:
+        http.server.requests: 10ms,50ms,100ms,200ms,500ms
+
+# Sentry 설정 (개발용 - 비활성화)
+sentry:
+  traces-sample-rate: 0.0  # 개발용 - 트레이스 수집 비활성화
+  debug: false
+  enabled: false  # Sentry 완전 비활성화

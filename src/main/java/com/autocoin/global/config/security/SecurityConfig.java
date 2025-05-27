@@ -51,6 +51,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers.frameOptions().disable()) // H2 콘솔을 위한 프레임 비활성화
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptionHandling ->
@@ -86,12 +87,22 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         // 공개 API 엔드포인트
-                        .requestMatchers("/health", "/api/health").permitAll()
+                        .requestMatchers("/", "/health", "/api/health").permitAll()
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup").permitAll()
                         .requestMatchers("/api/v1/auth/oauth2/**").permitAll()
                         .requestMatchers("/oauth2/authorization/**").permitAll()
                         .requestMatchers("/login/oauth2/code/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        // H2 Database Console (개발용)
+                        .requestMatchers("/h2-console/**").permitAll()
+                        // Spring Boot Actuator 엔드포인트들 (모니터링)
+                        .requestMatchers("/actuator/**").permitAll()
+                        // 테스트 API (개발용)
+                        .requestMatchers("/api/v1/test/**").permitAll()
+                        // Slack 테스트 API
+                        .requestMatchers("/api/v1/slack/**").permitAll()
+                        // 모니터링 API
+                        .requestMatchers("/api/monitoring/**").permitAll()
                         // 나머지 API는 인증 필요
                         .anyRequest().authenticated()
                 )
