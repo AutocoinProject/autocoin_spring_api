@@ -2,7 +2,7 @@ name: AutoCoin API Deploy
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, develop ]
     paths:
       - 'src/**'
       - 'build.gradle'
