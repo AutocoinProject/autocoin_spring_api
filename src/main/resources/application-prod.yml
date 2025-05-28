@@ -1,0 +1,95 @@
+# ====================================
+# 운영환경 설정 (Production)
+# ====================================
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:10}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_MAX_LIFETIME:1800000}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:update}
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+        jdbc:
+          batch_size: ${HIBERNATE_BATCH_SIZE:50}
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+
+# 로깅 설정 (운영용)
+logging:
+  level:
+    com.autocoin: ${LOG_LEVEL_AUTOCOIN:INFO}
+    org.springframework.web: ${LOG_LEVEL_SPRING:WARN}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE:WARN}
+    io.sentry: ${LOG_LEVEL_SENTRY:WARN}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:WARN}
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ./logs/autocoin-api.log
+  logback:
+    rollingpolicy:
+      max-file-size: ${LOG_MAX_FILE_SIZE:100MB}
+      max-history: ${LOG_MAX_HISTORY:30}
+
+# Swagger/OpenAPI 설정
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+# 모니터링 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS:health,info}
+  endpoint:
+    health:
+      show-details: ${HEALTH_SHOW_DETAILS:always}
+  metrics:
+    export:
+      prometheus:
+        enabled: ${PROMETHEUS_ENABLED:true}
+        step: ${PROMETHEUS_STEP:60s}
+
+# Sentry 설정
+sentry:
+  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:0.1}
+  debug: ${SENTRY_DEBUG:false}
+  environment: ${SENTRY_ENVIRONMENT:production}
+
+# 서버 설정
+server:
+  compression:
+    enabled: ${SERVER_COMPRESSION:true}
+  http2:
+    enabled: ${SERVER_HTTP2:true}
+
+# 보안 설정
+security:
+  headers:
+    frame-options: ${SECURITY_FRAME_OPTIONS:DENY}
+    content-type-options: ${SECURITY_CONTENT_TYPE:nosniff}
+    xss-protection: ${SECURITY_XSS_PROTECTION:1; mode=block}
+
+# 성능 최적화
+spring.jpa.properties.hibernate:
+  jdbc.batch_size: ${HIBERNATE_JDBC_BATCH_SIZE:25}
+  order_inserts: true
+  order_updates: true
+  batch_versioned_data: true
