@@ -235,28 +235,30 @@ jobs:
             sudo docker rm autocoin-api 2>/dev/null || true
             sudo docker image prune -f || true
             
-            # Create environment file
+            # Create environment file for RDS
             cat > .env << EOF
             SPRING_PROFILES_ACTIVE=prod
+            DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            DDL_AUTO=${{ secrets.DDL_AUTO || 'update' }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION }}
-            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
-            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
-            OAUTH2_REDIRECT_URI=${{ secrets.OAUTH2_REDIRECT_URI }}
-            AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
-            AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
-            AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
-            AWS_REGION=${{ secrets.AWS_REGION }}
-            UPBIT_API_URL=${{ secrets.UPBIT_API_URL }}
-            UPBIT_ENCRYPTION_KEY=${{ secrets.UPBIT_ENCRYPTION_KEY }}
-            SERP_API_KEY=${{ secrets.SERP_API_KEY }}
-            CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
-            SLACK_NOTIFICATIONS_ENABLED=true
+            JWT_EXPIRATION=${{ secrets.JWT_EXPIRATION || '3600000' }}
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID || 'test-google-client-id' }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET || 'test-google-client-secret' }}
+            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID || 'test-kakao-client-id' }}
+            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET || 'test-kakao-client-secret' }}
+            OAUTH2_REDIRECT_URI=${{ secrets.OAUTH2_REDIRECT_URI || 'http://localhost:3000/oauth2/redirect' }}
+            AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY || '' }}
+            AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY || '' }}
+            AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET || 'test-s3-bucket' }}
+            AWS_REGION=${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+            UPBIT_API_URL=${{ secrets.UPBIT_API_URL || 'https://api.upbit.com' }}
+            UPBIT_ENCRYPTION_KEY=${{ secrets.UPBIT_ENCRYPTION_KEY || 'test-upbit-key' }}
+            SERP_API_KEY=${{ secrets.SERP_API_KEY || 'test-serp-key' }}
+            CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS || 'http://localhost:3000' }}
+            SLACK_NOTIFICATIONS_ENABLED=false
+            SENTRY_DSN=
             EOF
             
             # Create Dockerfile
@@ -418,7 +420,7 @@ jobs:
             
                 if [ $i -eq 5 ]; then
                   echo "📋 Final detailed logs:"
-                  $DOCKER_CMD logs --tail 100 autocoin-api
+                  $DOCKER_CMD logs --tail 200 autocoin-api
             
                   echo "🔍 Final container inspection:"
                   $DOCKER_CMD inspect autocoin-api | grep -A 10 -B 10 "Health\|Status\|ExitCode"
