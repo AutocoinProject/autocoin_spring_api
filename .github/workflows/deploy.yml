@@ -269,9 +269,9 @@ jobs:
             COPY autocoin-api.jar app.jar
             ENV TZ=Asia/Seoul
             EXPOSE 8080
-            HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+            HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
               CMD curl -f http://localhost:8080/actuator/health || exit 1
-            ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+            ENTRYPOINT ["java", "-Xms512m", "-Xmx1024m", "-XX:+UseG1GC", "-jar", "/app/app.jar"]
             DOCKER_EOF
             
             echo "✅ Environment prepared"
@@ -396,7 +396,7 @@ jobs:
             
             # Wait for Spring Boot to fully start
             echo "⏳ Waiting for Spring Boot startup..."
-            sleep 60  # Spring Boot 시작을 위해 충분한 시간 대기
+            sleep 120  # Spring Boot 시작을 위해 충분한 시간 대기 (2분)
             
             echo "📊 Container status after waiting:"
             $DOCKER_CMD ps -a
@@ -430,8 +430,8 @@ jobs:
             
                   exit 1
                 else
-                  echo "⏳ Waiting 20 seconds before retry..."
-                  sleep 20
+                  echo "⏳ Waiting 30 seconds before retry..."
+                  sleep 30
                 fi
               fi
             done
