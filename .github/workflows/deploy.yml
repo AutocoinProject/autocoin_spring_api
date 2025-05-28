@@ -235,8 +235,9 @@ jobs:
             sudo docker rm autocoin-api 2>/dev/null || true
             sudo docker image prune -f || true
             
-            # Create environment file for RDS
-            cat > .env << EOF
+            # Create environment file for RDS with debugging
+            echo "Creating .env file..."
+            cat > .env << 'EOF'
             SPRING_PROFILES_ACTIVE=prod
             DB_URL=${{ secrets.DB_URL }}
             DB_USERNAME=${{ secrets.DB_USERNAME }}
@@ -260,6 +261,10 @@ jobs:
             SLACK_NOTIFICATIONS_ENABLED=false
             SENTRY_DSN=
             EOF
+            
+            # Debug: Check if DB_URL is set
+            echo "Checking DB_URL in .env file..."
+            grep "DB_URL" .env | head -1
             
             # Create Dockerfile
             cat > Dockerfile << 'DOCKER_EOF'

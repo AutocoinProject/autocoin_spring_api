@@ -1,0 +1,54 @@
+# ====================================
+# 테스트환경 설정 (H2 In-Memory DB)
+# ====================================
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# 로깅 설정 (테스트용)
+logging:
+  level:
+    com.autocoin: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Swagger 활성화
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+# 모니터링 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+
+# Sentry 비활성화
+sentry:
+  enabled: false
