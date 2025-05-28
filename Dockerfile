@@ -22,15 +22,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
   CMD curl -f http://localhost:8080/actuator/health || exit 1
 
-# 디버깅을 위한 스크립트 생성
-RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'echo "=== Environment Variables ==="' >> /app/start.sh && \
-    echo 'echo "DB_URL: $DB_URL"' >> /app/start.sh && \
-    echo 'echo "DB_USERNAME: $DB_USERNAME"' >> /app/start.sh && \
-    echo 'echo "SPRING_PROFILES_ACTIVE: $SPRING_PROFILES_ACTIVE"' >> /app/start.sh && \
-    echo 'echo "============================"' >> /app/start.sh && \
-    echo 'exec java -Xms512m -Xmx1024m -XX:+UseG1GC -jar /app/app.jar' >> /app/start.sh && \
-    chmod +x /app/start.sh
-
-# 애플리케이션 실행
-ENTRYPOINT ["/app/start.sh"]
+# 애플리케이션 실행 (JVM 최적화 옵션 포함)
+ENTRYPOINT ["java", "-Xms512m", "-Xmx1024m", "-XX:+UseG1GC", "-jar", "/app/app.jar"]
