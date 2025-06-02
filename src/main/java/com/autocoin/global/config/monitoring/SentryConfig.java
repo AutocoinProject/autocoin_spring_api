@@ -29,6 +29,12 @@ public class SentryConfig {
     @Value("${sentry.release:1.0.0}")
     private String release;
 
+    @Value("${sentry.debug:false}")
+    private Boolean debug;
+
+    @Value("${sentry.attach-threads:false}")
+    private Boolean attachThreads;
+
     @Value("${sentry.traces-sample-rate:0.1}")
     private Double tracesSampleRate;
 
@@ -51,9 +57,9 @@ public class SentryConfig {
                 options.setRelease(release);
                 options.setTracesSampleRate(tracesSampleRate);
                 options.setAttachStacktrace(true);
-                options.setAttachThreads(true);
+                options.setAttachThreads(attachThreads); // 환경변수로 제어
                 options.setEnableTracing(true);
-                options.setDebug(true); // 디버그 모드 활성화
+                options.setDebug(debug); // 환경변수로 제어
                 
                 // 민감한 정보 필터링
                 options.setBeforeSend((event, hint) -> {

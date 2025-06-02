@@ -46,6 +46,12 @@ public class SlackNotificationService {
      * 상세 메시지 전송
      */
     public void sendMessage(String channel, String message, String color, String title) {
+        // Webhook URL 유효성 검사
+        if (webhookUrl == null || webhookUrl.isEmpty() || webhookUrl.equals("https://hooks.slack.com/services/YOUR/WEBHOOK/URL")) {
+            log.warn("Slack Webhook URL이 설정되지 않았습니다. 메시지 전송을 건너뛅니다.");
+            return;
+        }
+        
         try {
             Map<String, Object> slackMessage = new HashMap<>();
             slackMessage.put("channel", channel);

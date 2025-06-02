@@ -105,6 +105,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/slack/**").permitAll()
                         // 모니터링 API
                         .requestMatchers("/api/monitoring/**").permitAll()
+                        // Trading API - 자동매매 기능
+                        .requestMatchers("/api/v1/trading/**").authenticated()  // 자동매매 API는 인증 필요
+                        .requestMatchers("/api/v1/trading/notify").permitAll()  // Flask 알림은 인증 없이 허용
                         // 나머지 API는 인증 필요
                         .anyRequest().authenticated()
                 )

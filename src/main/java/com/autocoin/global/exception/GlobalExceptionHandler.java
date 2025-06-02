@@ -51,6 +51,19 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
     
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Object> handleNoResourceFoundException(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        log.warn("잘못된 정적 리소스 요청: {}", ex.getResourcePath());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", HttpStatus.NOT_FOUND.value());
+        response.put("message", "요청하신 리소스를 찾을 수 없습니다: " + ex.getResourcePath());
+        response.put("error", "Resource Not Found");
+        response.put("timestamp", LocalDateTime.now());
+        
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+    
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<ErrorResponse> handleCustomException(CustomException ex) {
         log.error("Custom Exception: {}", ex.getMessage());

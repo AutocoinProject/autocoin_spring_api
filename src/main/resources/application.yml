@@ -136,7 +136,7 @@ sentry:
   debug: false
   send-default-pii: false
   attach-stacktrace: true
-  attach-threads: true
+  attach-threads: ${SENTRY_ATTACH_THREADS:false}
   enable-tracing: false
   max-breadcrumbs: 100
   max-cache-items: 30

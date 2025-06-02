@@ -221,6 +221,27 @@ public class TestController {
         }
     }
 
+    @Operation(summary = "Trading API 테스트", description = "Trading API 엔드포인트 상태를 확인합니다.")
+    @GetMapping("/trading")
+    public ResponseEntity<Map<String, Object>> testTrading() {
+        return ResponseEntity.ok(Map.of(
+            "status", "OK",
+            "message", "Trading API ready",
+            "timestamp", String.valueOf(System.currentTimeMillis()),
+            "endpoints", Map.of(
+                "start", "POST /api/v1/trading/start",
+                "stop", "POST /api/v1/trading/stop", 
+                "status", "GET /api/v1/trading/status",
+                "health", "GET /api/v1/trading/health",
+                "notify", "POST /api/v1/trading/notify"
+            ),
+            "required_auth", Map.of(
+                "start_stop_status", "JWT Bearer Token 필요",
+                "health_notify", "인증 불필요"
+            )
+        ));
+    }
+
     @Operation(summary = "Sentry 강제 초기화", description = "Sentry를 강제로 초기화합니다.")
     @PostMapping("/sentry-force-init")
     public ResponseEntity<Map<String, Object>> forceSentryInit() {

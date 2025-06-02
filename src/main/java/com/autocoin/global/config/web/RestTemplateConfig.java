@@ -1,5 +1,6 @@
 package com.autocoin.global.config.web;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,10 +12,12 @@ import java.time.Duration;
 public class RestTemplateConfig {
     
     @Bean
-    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+    public RestTemplate restTemplate(RestTemplateBuilder builder,
+                                   @Value("${HTTP_CLIENT_CONNECT_TIMEOUT:5000}") int connectTimeout,
+                                   @Value("${HTTP_CLIENT_READ_TIMEOUT:10000}") int readTimeout) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(5))
-                .setReadTimeout(Duration.ofSeconds(30))
+                .setConnectTimeout(Duration.ofMillis(connectTimeout))
+                .setReadTimeout(Duration.ofMillis(readTimeout))
                 .build();
     }
 }

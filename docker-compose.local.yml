@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # MySQL 데이터베이스 (로컬 개발용)
+  mysql-local:
+    image: mysql:8.0
+    container_name: autocoin-mysql-local
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: autocoin_db
+      MYSQL_USER: autocoin
+      MYSQL_PASSWORD: autocoin
+    volumes:
+      - mysql_local_data:/var/lib/mysql
+    ports:
+      - "3307:3306"  # 로컬에서 3307 포트로 접근
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql_local_data:

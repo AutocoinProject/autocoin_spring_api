@@ -20,6 +20,16 @@ public class SlackController {
 
     private final SlackNotificationService slackNotificationService;
 
+    @GetMapping("/status")
+    @Operation(summary = "Slack 연동 상태 확인", description = "Slack Webhook 설정 상태를 확인합니다.")
+    public ResponseEntity<Map<String, Object>> getSlackStatus() {
+        return ResponseEntity.ok(Map.of(
+            "webhook_configured", slackNotificationService != null,
+            "service_available", slackNotificationService != null,
+            "message", slackNotificationService != null ? "Slack 서비스가 활성화되어 있습니다." : "Slack 서비스가 비활성화되어 있습니다."
+        ));
+    }
+
     @PostMapping("/test")
     @Operation(summary = "Slack 연결 테스트", description = "Slack Webhook 연결을 테스트합니다.")
     public ResponseEntity<Map<String, Object>> testSlackConnection() {

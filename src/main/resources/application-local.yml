@@ -11,7 +11,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create  # 개발용 - 초기 생성
+      ddl-auto: update  # 개발용 - 초기 생성
     properties:
       hibernate:
         format_sql: true

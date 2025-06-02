@@ -25,4 +25,13 @@ public class HealthCheckController {
         response.put("status", "UP");
         return ResponseEntity.ok(response);
     }
+    
+    @GetMapping("/api/health")
+    public ResponseEntity<Map<String, String>> apiHealth() {
+        Map<String, String> response = new HashMap<>();
+        response.put("status", "UP");
+        response.put("service", "AutoCoin API");
+        response.put("timestamp", java.time.LocalDateTime.now().toString());
+        return ResponseEntity.ok(response);
+    }
 }

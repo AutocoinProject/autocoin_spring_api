@@ -17,11 +17,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.util.List;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api/v1/posts")
@@ -48,12 +52,30 @@ public class PostController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PostResponseDto> createPost(
             @Valid @ModelAttribute PostRequestDto requestDto,
-            @AuthenticationPrincipal User user) {
+            @AuthenticationPrincipal User user,
+            HttpServletRequest request) {
+        
+        log.info("=== 게시글 작성 요청 시작 ===");
+        log.info("Request Method: {}", request.getMethod());
+        log.info("Request Content-Type: {}", request.getContentType());
+        log.info("Request Content-Length: {}", request.getContentLength());
+        
         log.info("Post request received: title='{}', content='{}', writer='{}', file={}", 
                 requestDto.getTitle(), 
                 requestDto.getContent(), 
                 requestDto.getWriter(), 
                 requestDto.getFile() != null ? requestDto.getFile().getOriginalFilename() : "null");
+        
+        // 파일 정보 상세 로깅
+        if (requestDto.getFile() != null) {
+            log.info("파일 상세 정보:");
+            log.info("  - 파일명: {}", requestDto.getFile().getOriginalFilename());
+            log.info("  - 파일 크기: {} bytes", requestDto.getFile().getSize());
+            log.info("  - 파일 타입: {}", requestDto.getFile().getContentType());
+            log.info("  - 파일이 비어있음: {}", requestDto.getFile().isEmpty());
+        } else {
+            log.warn("파일이 null입니다");
+        }
         
         // 요청 값 디버깅
         if (requestDto.getTitle() == null || requestDto.getTitle().isEmpty()) {
@@ -65,8 +87,15 @@ public class PostController {
         if (requestDto.getWriter() == null || requestDto.getWriter().isEmpty()) {
             log.warn("Writer is null or empty in the request");
         }
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(postService.createPost(requestDto, user));
+        
+        try {
+            PostResponseDto response = postService.createPost(requestDto, user);
+            log.info("게시글 작성 성공: id={}", response.getId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.error("게시글 작성 중 오류 발생: ", e);
+            throw e;
+        }
     }
     
     /**
@@ -102,6 +131,48 @@ public class PostController {
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(postService.createPost(requestDto, user));
+    }
+    
+    /**
+     * 간단한 파일 업로드 테스트 API
+     * @param title 제목
+     * @param content 내용
+     * @param writer 작성자
+     * @param file 파일
+     * @return 업로드 결과
+     */
+    @Operation(summary = "(테스트용) 파일 업로드 확인", description = "파일 업로드가 정상적으로 작동하는지 확인하는 테스트 API")
+    @PostMapping(value = "/upload-test", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> testFileUpload(
+            @RequestParam("title") String title,
+            @RequestParam("content") String content,
+            @RequestParam("writer") String writer,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        log.info("=== 파일 업로드 테스트 ===");
+        log.info("title: {}", title);
+        log.info("content: {}", content);
+        log.info("writer: {}", writer);
+        log.info("file: {}", file != null ? file.getOriginalFilename() : "null");
+        
+        result.put("success", true);
+        result.put("title", title);
+        result.put("content", content);
+        result.put("writer", writer);
+        
+        if (file != null && !file.isEmpty()) {
+            result.put("fileReceived", true);
+            result.put("fileName", file.getOriginalFilename());
+            result.put("fileSize", file.getSize());
+            result.put("contentType", file.getContentType());
+        } else {
+            result.put("fileReceived", false);
+            result.put("fileName", null);
+        }
+        
+        return ResponseEntity.ok(result);
     }
     
     /**
@@ -251,4 +322,6 @@ public class PostController {
     public ResponseEntity<List<PostResponseDto>> getMyPosts(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(postService.getPostsByUser(user));
     }
+
+
 }
