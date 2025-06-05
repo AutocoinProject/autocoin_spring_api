@@ -45,6 +45,15 @@ out/
 .env.*
 !.env.*.template
 application-temp.yml
+*.key
+*.pem
+*.p12
+*.jks
+
+### Secrets ###
+secrets/
+private/
+credentials/
 
 ### Logs ###
 /logs
